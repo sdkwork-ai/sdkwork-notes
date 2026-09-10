@@ -1,3 +1,4 @@
+import { getApiHostForEnvironment, getBrand } from '@sdkwork/sdk-common';
 import { useMemo } from 'react';
 import { isBlank, trim } from '@sdkwork/utils';
 import { normalizeString } from '@sdkwork/notes-pc-commons';
@@ -226,17 +227,18 @@ function resolveDefaultBaseUrl(
       envSource.SDKWORK_LOCAL_PLATFORM_API_GATEWAY_HTTP_URL,
     ),
   );
-  switch (env) {
-    case 'production':
-      return 'https://notes.sdkwork.com';
-    case 'test':
-      return 'https://api-test.sdkwork.com';
-    case 'staging':
-      return 'https://staging-api.sdkwork.com';
-    case 'development':
-    default:
-      return localGateway || 'https://api-dev.sdkwork.com';
+  // ENVIRONMENT_SPEC.md §6.3: derive the api[-<env>].<brand> family host from
+  // the current page brand through @sdkwork/sdk-common helpers instead of a
+  // local domain table (dev keeps the local dev:cloud gateway anchor first).
+  if (env === 'development' && localGateway) {
+    return localGateway;
   }
+  const brand = getBrand(
+    typeof window !== 'undefined' && window.location?.hostname
+      ? window.location.hostname
+      : 'sdkwork.com',
+  );
+  return `https://${getApiHostForEnvironment(env === 'development' ? 'dev' : env, brand)}`;
 }
 
 function resolveOwnerMode(envSource: Record<string, string | undefined>): OwnerMode {

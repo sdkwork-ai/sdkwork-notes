@@ -1,3 +1,4 @@
+import { resolveBaseUrl } from '@sdkwork/sdk-common';
 import type {
   SdkworkAuthAppearanceConfig,
   SdkworkAuthRuntimeConfig,
@@ -71,11 +72,16 @@ function resolveIamDeploymentMode(): IamDeploymentMode {
 }
 
 function resolveAppbaseAppApiBaseUrl(): string {
+  // Authored overrides win; the shared default resolves through
+  // @sdkwork/sdk-common resolveBaseUrl (ENVIRONMENT_SPEC.md §6.3): unified
+  // SDKWORK_API_BASE_URL candidates matched against the page host, else
+  // derived from it (standalone same-origin; cloud api[-<env>].<brand>;
+  // pnpm dev local dev-server origin or cloud-gateway dev port).
   return readEnvValue(
     'VITE_SDKWORK_NOTES_PLATFORM_API_GATEWAY_HTTP_URL',
     'VITE_SDKWORK_APPBASE_APP_API_BASE_URL',
     'VITE_SDKWORK_IAM_APP_API_BASE_URL',
-  ) ?? '';
+  ) ?? resolveBaseUrl().url ?? '';
 }
 
 export function resetNotesAuthenticatedSdkClients(): void {
