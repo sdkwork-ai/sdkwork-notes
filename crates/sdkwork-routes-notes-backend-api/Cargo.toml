@@ -1,8 +1,12 @@
 [package]
+rust-version.workspace = true
 name = "sdkwork-routes-notes-backend-api"
 version.workspace = true
 edition.workspace = true
 
+
+[lints]
+workspace = true
 [lib]
 name = "sdkwork_routes_notes_backend_api"
 path = "src/lib.rs"

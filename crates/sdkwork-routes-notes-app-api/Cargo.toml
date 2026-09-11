@@ -1,8 +1,12 @@
 [package]
+rust-version.workspace = true
 name = "sdkwork-routes-notes-app-api"
 version.workspace = true
 edition.workspace = true
 
+
+[lints]
+workspace = true
 [lib]
 name = "sdkwork_routes_notes_app_api"
 path = "src/lib.rs"

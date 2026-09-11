@@ -1,8 +1,12 @@
 [package]
+rust-version.workspace = true
 name = "sdkwork-routes-notes-http-auth"
 version.workspace = true
 edition.workspace = true
 
+
+[lints]
+workspace = true
 [lib]
 name = "sdkwork_routes_notes_http_auth"
 path = "src/lib.rs"
