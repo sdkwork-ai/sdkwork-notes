@@ -1,6 +1,7 @@
 packages:
   - "apps/sdkwork-notes-pc"
   - "apps/sdkwork-notes-pc/packages/*"
+  - "sdkwork-notes-pc-react"
   - "sdkwork-notes-pc-react/packages/*"
   - "sdks/sdkwork-notes-app-sdk/sdkwork-notes-app-sdk-typescript"
   - "../sdkwork-iam/apps/sdkwork-iam-common/packages/sdkwork-iam-contracts"
