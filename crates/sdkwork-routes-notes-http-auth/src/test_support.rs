@@ -13,6 +13,8 @@ pub fn test_auth_claim_token(tenant_id: &str, organization_id: &str, user_id: &s
         "session_id": "session-test",
         "app_id": "appbase",
         "auth_level": "password",
+        // token-claims-gate: legacy-fixture — constructs a pre-slimming credential so this
+        // test can assert the claim is no longer an authorization source.
         "permission_scope": "notes.*,notes.backend.*"
     }))
 }
