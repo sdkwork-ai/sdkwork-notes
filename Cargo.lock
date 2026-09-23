@@ -2378,6 +2378,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-iam-provider-account-service"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "base64",
+ "chrono",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "uuid",
+]
+
+[[package]]
 name = "sdkwork-iam-web-adapter"
 version = "0.1.0"
 dependencies = [
@@ -2500,6 +2515,7 @@ dependencies = [
  "sdkwork-iam-bootstrap",
  "sdkwork-iam-database-host",
  "sdkwork-iam-module-registry",
+ "sdkwork-iam-provider-account-service",
  "sdkwork-iam-web-adapter",
  "sdkwork-utils-rust",
  "sdkwork-web-contract",
