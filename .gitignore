@@ -74,3 +74,19 @@ Thumbs.db
 **/public/runtime-env.json
 
 # Build artifacts
+
+# Compiler emit beside source is not content (REPOSITORY_BASELINE_SPEC.md section 2).
+# The negations keep authored ambient declarations committable.
+*.js.map
+*.d.ts.map
+**/src/**/*.js
+**/src/**/*.d.ts
+**/composed/**/*.js
+**/composed/**/*.d.ts
+!**/src/**/vite-env.d.ts
+!**/src/**/global.d.ts
+!**/src/**/shims.d.ts
+# `tsconfig.json` includes `scripts` and the pc app root, so those are source
+# directories here and tsc emit lands beside them, not only under src/.
+sdkwork-notes-pc-react/scripts/**/*.js
+sdkwork-notes-pc-react/scripts/**/*.d.ts
