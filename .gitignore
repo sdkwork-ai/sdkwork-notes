@@ -88,3 +88,7 @@ sdkwork-notes-pc-react/scripts/**/*.d.ts
 # (`vite-env.d.ts`, `styles.d.ts`, module shims) and real mini-program source under `src/`.
 # The sibling rule is enforced against tracked files by
 # `sdkwork-specs/tools/check-repository-baseline-content.mjs` instead.
+
+# --- SDKWork: gitignore completeness (2026-10-16) ---
+# Added by repo-commit task; targeted rules only, compliant with check-gitignore-standard
+__pycache__/
