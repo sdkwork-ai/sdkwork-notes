@@ -2605,6 +2605,7 @@ dependencies = [
 name = "sdkwork-routes-iam-backend-api"
 version = "0.1.0"
 dependencies = [
+ "argon2",
  "axum",
  "chrono",
  "sdkwork-database-sqlx",
