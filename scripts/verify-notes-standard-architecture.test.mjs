@@ -88,7 +88,7 @@ test('declares workspace agent entrypoints and packaging workflow', () => {
 
   const workflow = readJson('sdkwork.workflow.json');
   assert.equal(workflow.app.id, 'sdkwork-notes-pc-react');
-  assert.equal(workflow.app.configPath, 'sdkwork-notes-pc-react/sdkwork.app.config.json');
+  assert.equal(workflow.app.configPath, 'sdkwork-notes-pc-react/agent.app.config.json');
 });
 
 test('declares author-owned API contracts under apis/', () => {
@@ -303,14 +303,14 @@ test('declares topology and gateway deployment profiles', () => {
   assert.deepEqual(topology.surfaces?.['application.public-ingress']?.protocols, ['http']);
 });
 
-test('PC application root declares sdkwork.app.config.json and component spec', () => {
-  assert.equal(exists('sdkwork-notes-pc-react/sdkwork.app.config.json'), true);
+test('PC application root declares agent.app.config.json and component spec', () => {
+  assert.equal(exists('sdkwork-notes-pc-react/agent.app.config.json'), true);
   assert.equal(exists('sdkwork-notes-pc-react/specs/component.spec.json'), true);
   assert.equal(exists('sdkwork-notes-pc-react/AGENTS.md'), true);
 
-  const manifest = readJson('sdkwork-notes-pc-react/sdkwork.app.config.json');
+  const manifest = readJson('sdkwork-notes-pc-react/agent.app.config.json');
   assert.equal(manifest.schemaVersion, 3);
-  assert.equal(manifest.kind, 'sdkwork.app');
+  assert.equal(manifest.kind, 'agent.app');
 });
 
 test('Rust HTTP crates follow sdkwork-routes-* and sdkwork-api-notes-standalone-gateway naming', () => {

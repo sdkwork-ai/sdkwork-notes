@@ -94,7 +94,7 @@
 | 认证与会话持久化 | `packages/sdkwork-notes-pc-auth/src/store/authStore.tsx`、`packages/sdkwork-notes-pc-auth/src/services/sdkworkAuthBridge.ts`、`packages/sdkwork-notes-pc-core/src/sdk/useAppSdkClient.ts`、`packages/sdkwork-notes-pc-desktop/src/desktop/sessionBridge.ts`、`packages/sdkwork-notes-pc-desktop/src-tauri/src/commands/session_state.rs` |
 | 笔记工作区 | `packages/sdkwork-notes-pc-notes/src/pages/NotesWorkspacePage.tsx`、`useNotesWorkspaceStore.ts`、`noteWorkspaceOrchestrator.ts`、`noteWorkspaceSelectors.ts`、`noteWorkspaceCommandPaletteModel.ts`、`noteWorkspaceSaveFeedback.ts`、`noteWorkspaceSaveQueue.ts`、`noteRepository.ts` |
 | 桌面桥与能力边界 | `packages/sdkwork-notes-pc-desktop/src/desktop/runtime.ts`、`tauriBridge.ts`、`bootstrap/DesktopBootstrapApp.tsx`、`src-tauri/capabilities/default.json` |
-| 应用元数据与发布拓扑 | `sdkwork.app.config.json` |
+| 应用元数据与发布拓扑 | `agent.app.config.json` |
 | CI/CD 与桌面发布链 | `.github/workflows/package.yml`、`sdkwork.workflow.json`、`package.json` |
 
 ## 六、实施原则

@@ -998,11 +998,11 @@ SDKWork Notes 当前已经具备较完整的现代桌面应用基础能力：
 - test
 - production
 
-并通过 `.env.*`、`sdkwork.app.config.json` 和 Vite runtime env 共同完成运行时配置。
+并通过 `.env.*`、`agent.app.config.json` 和 Vite runtime env 共同完成运行时配置。
 
 ### 当前应用配置画像
 
-从 `sdkwork.app.config.json` 看，当前应用交付画像已经比较明确：
+从 `agent.app.config.json` 看，当前应用交付画像已经比较明确：
 
 | 配置项 | 当前值 |
 |---|---|

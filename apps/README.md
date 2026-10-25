@@ -10,7 +10,7 @@ Specs: APPLICATION_SPEC.md, SDKWORK_WORKSPACE_SPEC.md
 The repository root is not the primary runnable app surface.
 Notes uses a hybrid layout until migration to `apps/sdkwork-notes-pc/`:
 
-- `sdkwork-notes-pc-react/` with `sdkwork-notes-pc-react/sdkwork.app.config.json`
+- `sdkwork-notes-pc-react/` with `sdkwork-notes-pc-react/agent.app.config.json`
 
 Repository-root `pnpm-workspace.yaml` owns sibling package paths; do not add nested workspace files under client app roots.
 

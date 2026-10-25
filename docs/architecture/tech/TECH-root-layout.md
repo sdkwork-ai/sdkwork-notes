@@ -28,7 +28,7 @@ This repository is a **multi-surface product workspace** governed by `sdkwork-sp
 | Standard path | Notes decision |
 | --- | --- |
 | `apps/<product>-pc/` | PC React/Tauri app lives at `sdkwork-notes-pc-react/` for historical layout; `apps/README.md` documents the mapping. |
-| Root `sdkwork.app.config.json` | Application identity lives in `sdkwork-notes-pc-react/sdkwork.app.config.json`. |
+| Root `agent.app.config.json` | Application identity lives in `sdkwork-notes-pc-react/agent.app.config.json`. |
 | RPC / `sdkwork-discovery` | No gRPC services yet; discovery deferred until RPC is introduced. |
 
 ## Architecture-specific paths (not project-root dictionary)

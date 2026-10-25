@@ -6,7 +6,7 @@
     "name": "SDKWork Notes PC React",
     "repository": "sdkwork-ai/sdkwork-notes",
     "sourcePath": "sdkwork-notes-pc-react",
-    "configPath": "sdkwork-notes-pc-react/sdkwork.app.config.json"
+    "configPath": "sdkwork-notes-pc-react/agent.app.config.json"
   },
   "release": {
     "artifactPrefix": "sdkwork-notes-pc-react",

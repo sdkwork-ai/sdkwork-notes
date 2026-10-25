@@ -201,7 +201,7 @@ async function main() {
   const profileEnv = loadProfile(profileId);
   const runtimeEnv = mergeRepoDevBootstrapAccessTokenEnv({
     repoRoot: REPO_ROOT,
-    manifestPath: 'sdkwork-notes-pc-react/sdkwork.app.config.json',
+    manifestPath: 'sdkwork-notes-pc-react/agent.app.config.json',
     env: mergeRuntimeEnv(
       process.env,
       profileEnv,

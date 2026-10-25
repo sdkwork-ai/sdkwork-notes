@@ -20,7 +20,7 @@ Do not copy root standard text into this repository. If these relative paths do 
 
 ## Application Identity
 
-No `sdkwork.app.config.json` is present at this root. The PC application surface owns the manifest at `sdkwork-notes-pc-react/sdkwork.app.config.json`. If the task changes application behavior, runtime config, SDK wiring, release metadata, or app-owned capabilities, read that manifest or add one according to the root specs.
+No `agent.app.config.json` is present at this root. The PC application surface owns the manifest at `sdkwork-notes-pc-react/agent.app.config.json`. If the task changes application behavior, runtime config, SDK wiring, release metadata, or app-owned capabilities, read that manifest or add one according to the root specs.
 
 ## Local Dictionary Structure
 
@@ -28,7 +28,7 @@ No `sdkwork.app.config.json` is present at this root. The PC application surface
 - `CLAUDE.md`: Claude Code compatibility shim that points to `AGENTS.md` and must not duplicate rules.
 - `GEMINI.md`: Gemini CLI compatibility shim that points to `AGENTS.md` and must not duplicate rules.
 - `CODEX.md`: Codex compatibility shim that points to `AGENTS.md` and must not duplicate rules.
-- `sdkwork.app.config.json`: owned by `sdkwork-notes-pc-react/` (hybrid app placement).
+- `agent.app.config.json`: owned by `sdkwork-notes-pc-react/` (hybrid app placement).
 - `.sdkwork/`: source-controlled workspace metadata (`skills/`, `plugins/`).
 - `specs/`: root topology and workspace component contracts (`topology.spec.json`, `component.spec.json`).
 - `sdks/`: SDK family workspaces, route manifests, and generated transport output.
@@ -46,7 +46,7 @@ No `sdkwork.app.config.json` is present at this root. The PC application surface
 ## Spec Resolution Order
 
 1. Read this `AGENTS.md` and any nearer component-level `AGENTS.md`.
-2. Read `sdkwork.app.config.json` when present.
+2. Read `agent.app.config.json` when present.
 3. Read local `specs/README.md` and `specs/component.spec.json` when present.
 4. Read local `.sdkwork/README.md`, `.sdkwork/skills/`, and `.sdkwork/plugins/` when relevant.
 5. Read `../sdkwork-specs/README.md` and the task-specific root specs.
