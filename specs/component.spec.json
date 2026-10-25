@@ -19,7 +19,7 @@
     "manifests": [
       "Cargo.toml",
       "package.json",
-      "sdkwork.workflow.json",
+      "agent.workflow.json",
       "specs/topology.spec.json"
     ]
   },

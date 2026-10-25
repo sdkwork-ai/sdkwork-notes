@@ -212,7 +212,7 @@ GitHub Actions 已支持：
 当前 workflow 触发与治理细节还包括：
 
 - 通过根目录 `.github/workflows/package.yml` 委托 `sdkwork-ai/sdkwork-github-workflow` 可复用打包流程
-- 打包配置权威文件为仓库根目录 `sdkwork.workflow.json`
+- 打包配置权威文件为仓库根目录 `agent.workflow.json`
 - 桌面发布目标 ID 遵循 `*-standalone-desktop-*` 命名（见 `NAMING_SPEC.md` / `GITHUB_WORKFLOW_SPEC.md`）
 
 当前应用元数据还额外声明了以下发布拓扑：
@@ -245,7 +245,7 @@ GitHub Actions 已支持：
 需要明确区分两层事实：
 
 - 元数据层已经把 Web bundle 与 Desktop bundle 都纳入正式发布拓扑。
-- 当前 `.github/workflows/package.yml` + `sdkwork.workflow.json` 自动化发布流程聚焦 Desktop 产物构建与 GitHub Release 发布，未直接承担 Web bundle 发布职责。
+- 当前 `.github/workflows/package.yml` + `agent.workflow.json` 自动化发布流程聚焦 Desktop 产物构建与 GitHub Release 发布，未直接承担 Web bundle 发布职责。
 
 ### 8.7.2 当前发布优点
 

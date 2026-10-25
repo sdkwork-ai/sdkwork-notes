@@ -23,7 +23,7 @@ OpenAPI authorities live under `apis/` only. Three SDK families ship TypeScript 
 | API contracts | `API_SPEC.md` | Aligned | `apis/*/*.openapi.json`, route manifests, `x-sdkwork-*` extensions |
 | SDK workspace | `SDK_WORKSPACE_GENERATION_SPEC.md` | Aligned | Three SDK families with TypeScript + Rust sdkgen output; `api:check` validates manifests |
 | Deployment | `DEPLOYMENT_SPEC.md`, topology specs | Aligned | `specs/topology.spec.json`, unified + split orchestration, gateway TOML |
-| Packaging / CI | `GITHUB_WORKFLOW_SPEC.md` | Aligned | `sdkwork.workflow.json` (`*-standalone-desktop-*` targets), thin `package.yml` |
+| Packaging / CI | `GITHUB_WORKFLOW_SPEC.md` | Aligned | `agent.workflow.json` (`*-standalone-desktop-*` targets), thin `package.yml` |
 | PC app architecture | `APP_PC_ARCHITECTURE_SPEC.md` | Aligned | `sdkwork-notes-pc-*` directories; `@sdkwork/notes-pc-*` npm names; config templates |
 | PC config profiles | `CONFIG_SPEC.md` | Aligned | `sdkwork-notes-pc-react/config/{browser,desktop,server,container}/` examples |
 | Rust crate naming | `NAMING_SPEC.md`, `RUST_CODE_SPEC.md` | Aligned | Route/server/service/repository crates under `crates/` |

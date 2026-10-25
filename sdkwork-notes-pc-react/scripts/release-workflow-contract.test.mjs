@@ -12,7 +12,7 @@ const legacyWorkflowPath = path.resolve(
   workspaceRoot,
   '../.github/workflows/sdkwork-notes-desktop-release.yml',
 );
-const workflowConfigPath = path.resolve(workspaceRoot, '../sdkwork.workflow.json');
+const workflowConfigPath = path.resolve(workspaceRoot, '../agent.workflow.json');
 
 test('release workflow delegates desktop packaging to the SDKWork reusable workflow', () => {
   const workflowSource = fs.readFileSync(workflowPath, 'utf8');

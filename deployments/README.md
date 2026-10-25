@@ -25,9 +25,9 @@ Current deployment topology is declared in:
 
 ## Packaging
 
-GitHub packaging uses [../sdkwork.workflow.json](../sdkwork.workflow.json) and [../.github/workflows/package.yml](../.github/workflows/package.yml).
+GitHub packaging uses [../agent.workflow.json](../agent.workflow.json) and [../.github/workflows/package.yml](../.github/workflows/package.yml).
 
-Desktop release targets are declared in `sdkwork.workflow.json` and referenced from `deploy.yaml` `packages` (`desktop-windows`, `desktop-macos`, `desktop-linux`).
+Desktop release targets are declared in `agent.workflow.json` and referenced from `deploy.yaml` `packages` (`desktop-windows`, `desktop-macos`, `desktop-linux`).
 
 ## Production Drive integration
 

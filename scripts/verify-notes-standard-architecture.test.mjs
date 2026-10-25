@@ -29,7 +29,7 @@ const REQUIRED_WORKSPACE_FILES = [
   'GEMINI.md',
   'README.md',
   'Cargo.toml',
-  'sdkwork.workflow.json',
+  'agent.workflow.json',
   '.github/workflows/package.yml',
   '.sdkwork/README.md',
   '.sdkwork/skills/README.md',
@@ -86,7 +86,7 @@ test('declares workspace agent entrypoints and packaging workflow', () => {
     assert.equal(exists(file), true, `${file} should exist`);
   }
 
-  const workflow = readJson('sdkwork.workflow.json');
+  const workflow = readJson('agent.workflow.json');
   assert.equal(workflow.app.id, 'sdkwork-notes-pc-react');
   assert.equal(workflow.app.configPath, 'sdkwork-notes-pc-react/agent.app.config.json');
 });
@@ -355,10 +355,10 @@ test('PC vite configs use notes-owned private env helpers instead of core-pc-rea
 });
 
 test('packaging workflow targets follow standalone desktop naming', () => {
-  const workflow = readJson('sdkwork.workflow.json');
+  const workflow = readJson('agent.workflow.json');
   const targetIds = (workflow.targets ?? []).map((target) => target.id);
 
-  assert.ok(targetIds.length > 0, 'sdkwork.workflow.json should declare desktop release targets');
+  assert.ok(targetIds.length > 0, 'agent.workflow.json should declare desktop release targets');
 
   for (const targetId of targetIds) {
     assert.match(
