@@ -25,7 +25,7 @@ test('release workflow delegates desktop packaging to the SDKWork reusable workf
     workflowSource,
     /uses:\s+sdkwork-ai\/sdkwork-github-workflow\/\.github\/workflows\/sdkwork-package\.yml@b0829529b9277a3da32b90c2d36ff34ff09fa832/,
   );
-  assert.match(workflowSource, /config_path:\s+sdkwork\.workflow\.json/);
+  assert.match(workflowSource, /config_path:\s+agent\.workflow\.json/);
   assert.match(
     workflowSource,
     /package_version:\s+\$\{\{\s*github\.event\.inputs\.package_version\s+\|\|\s+''\s*\}\}/,
