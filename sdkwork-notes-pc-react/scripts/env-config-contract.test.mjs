@@ -15,7 +15,7 @@ test('workspace ships explicit development, test, production, and example env fi
     '.env.standalone.development',
     '.env.standalone.test',
     '.env.standalone.production',
-    '.env.development.local.example',
+    '.env.standalone.development.example',
   ]) {
     assert.equal(fs.existsSync(path.join(workspaceRoot, relativePath)), true, `${relativePath} is required`);
   }

@@ -34,7 +34,6 @@ yarn-error.log*
 
 # SDKWork local environment and runtime config overrides
 .env.local
-.env.development.local
 .env.test.local
 .env.staging.local
 .env.production.local
