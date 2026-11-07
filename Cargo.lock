@@ -2637,6 +2637,7 @@ dependencies = [
  "sdkwork-web-core",
  "serde_json",
  "sqlx",
+ "tracing",
 ]
 
 [[package]]

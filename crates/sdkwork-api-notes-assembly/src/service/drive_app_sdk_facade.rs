@@ -34,7 +34,12 @@ pub struct SdkDriveAppFacadePageContentPort {
 
 impl SdkDriveAppFacadePageContentPort {
     pub fn from_env(facade_url: String) -> Result<Self, String> {
-        let client = SdkworkAppClient::new_with_base_url(trim(&facade_url))
+        // DISCOVERY_SPEC §12.1: registry-first, configured URL as degradation.
+        let base_url = sdkwork_utils_rust::service_base_url::registry_base_url_or(
+            "sdkwork-drive",
+            &trim(&facade_url),
+        );
+        let client = SdkworkAppClient::new_with_base_url(base_url)
             .map_err(|error| format!("initialize Drive SDK client failed: {error}"))?;
         if let Ok(token) = std::env::var("SDKWORK_ACCESS_TOKEN") {
             let trimmed = trim(&token);
