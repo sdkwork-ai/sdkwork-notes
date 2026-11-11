@@ -5,6 +5,10 @@
       "envVar": "SDKWORK_DRIVE_FACADE_URL",
       "module": "drive",
       "reason": "Explicit split-deployment opt-in only (MODULE_SPEC.md 4.2.3). Notes reaches sdkwork-drive in-process by default through sdkwork-drive-workspace-service on the host PgPool: create uses DriveUploaderService::upload_bytes, update uses DriveUploadService::complete_stored_version, read/list use the node-version and storage-object stores with reader/writer ACL and ranged integrity-checked object reads, and tenant quota is enforced where the Drive route enforced it. This adapter is unreachable unless the deployment sets SDKWORK_NOTES_DRIVE_MODE=http, and the endpoint it reads is validated at startup, so a real split deployment keeps working."
+    },
+    {
+      "file": "crates/sdkwork-api-notes-assembly/src/service/drive_http_adapter.rs",
+      "reason": "Explicit HTTP opt-in, default is in-process, startup-validated. File-scoped entry for the second detection mode: the file constructs the generated Drive SDK client (sdkwork_drive_app_sdk_generated_rust) and names /app/v3/api only inside the SDKWORK_NOTES_DRIVE_MODE=http adapter. The default port is drive_in_process on the host PgPool, and HttpDrivePageContentPort::from_env fails at startup when no Drive endpoint is configured."
     }
   ]
 }
