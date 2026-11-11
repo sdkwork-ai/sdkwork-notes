@@ -68,3 +68,6 @@ sdkwork-database-lifecycle = { path = "../sdkwork-database/crates/sdkwork-databa
 sdkwork-database-spi = { path = "../sdkwork-database/crates/sdkwork-database-spi", package = "sdkwork-database-spi" }
 sdkwork-database-repository = { path = "../sdkwork-database/crates/sdkwork-database-repository", package = "sdkwork-database-repository" }
 sdkwork-drive-app-sdk-generated-rust = { path = "../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-rust/generated/server-openapi" }
+sdkwork-drive-workspace-service = { path = "../sdkwork-drive/crates/sdkwork-drive-workspace-service" }
+sdkwork-drive-object-runtime = { path = "../sdkwork-drive/crates/sdkwork-drive-object-runtime" }
+sdkwork-drive-storage-contract = { path = "../sdkwork-drive/crates/sdkwork-drive-storage-contract" }

@@ -257,11 +257,20 @@ pub struct UpdateDrivePageContentCommand {
 pub struct ReadDrivePageContentCommand {
     pub tenant_id: String,
     pub organization_id: String,
+    /// The actor the page belongs to; the in-process Drive port authorizes the
+    /// read with Drive's `reader` role for this subject (MODULE_SPEC.md §4.2).
+    pub operator_id: String,
     pub page_id: String,
     pub drive_space_id: String,
     pub drive_node_id: String,
     pub drive_uri: String,
     pub current_drive_version_id: String,
+    /// The page's recorded content type, echoed by the Drive port so the read
+    /// snapshot keeps Notes' content metadata unchanged.
+    pub content_type: String,
+    /// The page's recorded content schema version (Notes metadata, not stored
+    /// by Drive).
+    pub content_schema_version: String,
 }
 
 #[derive(Debug, Clone)]
@@ -282,6 +291,9 @@ pub struct RestoreDrivePageContentVersionCommand {
 pub struct ListDrivePageContentVersionsCommand {
     pub tenant_id: String,
     pub organization_id: String,
+    /// The actor the page belongs to; the in-process Drive port authorizes the
+    /// listing with Drive's `reader` role for this subject.
+    pub operator_id: String,
     pub page_id: String,
     pub drive_space_id: String,
     pub drive_node_id: String,

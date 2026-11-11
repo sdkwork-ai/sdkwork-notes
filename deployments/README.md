@@ -29,11 +29,22 @@ GitHub packaging uses [../agent.workflow.json](../agent.workflow.json) and [../.
 
 Desktop release targets are declared in `agent.workflow.json` and referenced from `deploy.yaml` `packages` (`desktop-windows`, `desktop-macos`, `desktop-linux`).
 
-## Production Drive integration
+## Drive integration
 
-Production topology profiles set:
+Notes reaches sdkwork-drive **in-process** by default (MODULE_SPEC.md §4.2):
+`InProcessDrivePageContentPort` calls `sdkwork-drive-workspace-service`,
+`sdkwork-drive-object-runtime`, and `sdkwork-drive-storage-contract` on the host
+PostgreSQL pool, so a deployment whose process owns that pool needs no Drive
+endpoint and no service credential.
 
-- `SDKWORK_NOTES_USE_MEMORY_DRIVE=0`
-- `SDKWORK_DRIVE_FACADE_URL=https://api.sdkwork.com`
+The Notes gateway container is its own process and does not carry the Drive
+storage configuration, so the shipped topology profiles choose their transport
+explicitly:
 
-Local development defaults to in-memory Drive unless `SDKWORK_NOTES_USE_MEMORY_DRIVE=0` and `SDKWORK_DRIVE_FACADE_URL` are set.
+- `SDKWORK_NOTES_DRIVE_MODE=http` plus `SDKWORK_DRIVE_FACADE_URL` — split
+  deployment; the endpoint is validated at startup. Used by
+  `cloud.production`, `cloud.demo`, and `standalone.production`.
+- `SDKWORK_NOTES_DRIVE_MODE=memory` — local/in-memory Drive. Used by
+  development, test, and staging profiles.
+- `SDKWORK_NOTES_DRIVE_MODE=in-process` (the default) — call Drive in this
+  process on the host PostgreSQL pool.

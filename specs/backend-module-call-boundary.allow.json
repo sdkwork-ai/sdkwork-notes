@@ -1,0 +1,10 @@
+{
+  "allow": [
+    {
+      "file": "crates/sdkwork-api-notes-assembly/src/service/drive_http_adapter.rs",
+      "envVar": "SDKWORK_DRIVE_FACADE_URL",
+      "module": "drive",
+      "reason": "Explicit split-deployment opt-in only (MODULE_SPEC.md 4.2.3). Notes reaches sdkwork-drive in-process by default through sdkwork-drive-workspace-service on the host PgPool: create uses DriveUploaderService::upload_bytes, update uses DriveUploadService::complete_stored_version, read/list use the node-version and storage-object stores with reader/writer ACL and ranged integrity-checked object reads, and tenant quota is enforced where the Drive route enforced it. This adapter is unreachable unless the deployment sets SDKWORK_NOTES_DRIVE_MODE=http, and the endpoint it reads is validated at startup, so a real split deployment keeps working."
+    }
+  ]
+}

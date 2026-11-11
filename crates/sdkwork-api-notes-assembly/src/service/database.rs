@@ -35,8 +35,11 @@ pub async fn assemble_notes_service_from_env(
         .await
         .map_err(|error| format!("install notes schema failed: {error}"))?;
 
-    Ok(NotesService::new(
-        SqlNotesStore::new(pool),
-        NotesApiDrivePort::from_env(),
-    ))
+    // MODULE_SPEC.md §4.2: the Drive port is resolved here, at startup, so a
+    // misconfigured split-deployment opt-in or a packaged deployment without
+    // the host PostgreSQL pool fails the boot instead of the first page save.
+    let drive_port = NotesApiDrivePort::from_env()
+        .map_err(|error| format!("initialize notes Drive port failed: {error}"))?;
+
+    Ok(NotesService::new(SqlNotesStore::new(pool), drive_port))
 }

@@ -94,7 +94,7 @@
       {
         "sdkFamily": "sdkwork-drive-app-sdk",
         "surface": "app-api",
-        "runtimeMode": "split-or-remote"
+        "runtimeMode": "embedded-or-split"
       }
     ],
     "events": [],
@@ -108,7 +108,7 @@
     "database": "Notes API server resolves SDKWORK_NOTES database config through sdkwork-database-config; repository crate declares sdkwork-database-repository entities aligned with database/contract/table-registry.json.",
     "utils": "Rust HTTP route crates and pages-service use sdkwork-utils-rust; PC commons re-exports @sdkwork/utils text helpers.",
     "discovery": "Not required until RPC services are introduced.",
-    "drive": "Notes API server routes page content through SdkDriveAppFacadePageContentPort (sdkwork-drive-app-sdk-generated-rust). Production profiles disable memory Drive and require SDKWORK_DRIVE_FACADE_URL."
+    "drive": "Notes API server reaches sdkwork-drive in-process by default (MODULE_SPEC.md 4.2): InProcessDrivePageContentPort calls sdkwork-drive-workspace-service, sdkwork-drive-object-runtime, and sdkwork-drive-storage-contract on the host PgPool, with tenant scoping from the request context and reader/writer Drive ACL. The generated-sdk HttpDrivePageContentPort (sdkwork-drive-app-sdk-generated-rust) survives only behind the explicit SDKWORK_NOTES_DRIVE_MODE=http opt-in plus SDKWORK_DRIVE_FACADE_URL, validated at startup; split-gateway production profiles use it, development/test/staging set SDKWORK_NOTES_DRIVE_MODE=memory."
   },
   "verification": {
     "commands": [

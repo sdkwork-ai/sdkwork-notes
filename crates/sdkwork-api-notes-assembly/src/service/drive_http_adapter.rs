@@ -1,11 +1,30 @@
-use sdkwork_utils_rust::string::{is_blank, trim};
+//! Opt-in split-deployment Drive adapter (MODULE_SPEC.md §4.2.3).
+//!
+//! This module is **never** selected by default. Notes reaches Drive in-process
+//! (`drive_in_process.rs`); a deployment that really runs Drive in another
+//! process or container opts in with:
+//!
+//! ```text
+//! SDKWORK_NOTES_DRIVE_MODE=http
+//! SDKWORK_DRIVE_FACADE_URL=https://drive.sdkwork.com
+//! ```
+//!
+//! The opt-in is validated at startup: [`HttpDrivePageContentPort::from_env`]
+//! fails when neither the configured endpoint nor the process service registry
+//! yields a Drive base URL, so a misspelled split deployment aborts the boot
+//! instead of failing the first page save. The variable is recorded in
+//! `specs/backend-module-call-boundary.allow.json` with its reason.
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use reqwest::Client;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
+
 use sdkwork_drive_app_sdk_generated_rust::{
     CompleteUploadSessionRequest, CompletedUploadPart, CreateDownloadUrlRequest,
-    CreateUploadSessionRequest, MarkUploaderPartUploadedRequest, NodeCommandRequest,
+    CreateUploadSessionRequest, FileVersion, MarkUploaderPartUploadedRequest, NodeCommandRequest,
     PrepareUploaderUploadRequest, PresignUploadPartRequest, SdkworkAppClient, SdkworkError,
 };
 use sdkwork_notes_pages_service::domain::{
@@ -17,28 +36,52 @@ use sdkwork_notes_pages_service::ports::{
     ReadDrivePageContentCommand, RestoreDrivePageContentVersionCommand,
     UpdateDrivePageContentCommand,
 };
-use serde_json::Value;
-use sha2::{Digest, Sha256};
+use sdkwork_utils_rust::service_base_url::registry_base_url_or;
+use sdkwork_utils_rust::string::{is_blank, trim};
+
+use crate::service::drive_page_content_mapping::{
+    build_snapshot, build_version_summary, PageSnapshotInput,
+};
+
+/// The only endpoint variable an HTTP-mode Notes deployment may read. Read here
+/// (not in `drive_port.rs`) so the default path cannot reference it.
+pub(crate) const DRIVE_FACADE_URL_ENV: &str = "SDKWORK_DRIVE_FACADE_URL";
 
 const NOTES_RESOURCE_TYPE: &str = "notes_page";
 const NOTES_UPLOAD_PROFILE: &str = "generic";
 const NOTES_CONTENT_SCENE: &str = "notes_page_content";
 const NOTES_CONTENT_SOURCE: &str = "notes_product_service";
 
-/// Production Drive adapter backed by the generated Drive App SDK.
+/// Content schema version the replaced adapter reported after a restore (the
+/// restore command carries no page metadata, and the value only reaches Notes'
+/// post-restore snapshot check).
+const RESTORE_CONTENT_SCHEMA_VERSION: &str = "notes/v1";
+
+/// Split-deployment Drive adapter backed by the generated Drive App SDK.
 #[derive(Clone)]
-pub struct SdkDriveAppFacadePageContentPort {
+pub struct HttpDrivePageContentPort {
     client: SdkworkAppClient,
     http: Client,
 }
 
-impl SdkDriveAppFacadePageContentPort {
-    pub fn from_env(facade_url: String) -> Result<Self, String> {
+impl HttpDrivePageContentPort {
+    /// Builds the adapter for an explicit `SDKWORK_NOTES_DRIVE_MODE=http`
+    /// deployment.
+    ///
+    /// # Errors
+    ///
+    /// Fails at startup when no Drive base URL is configured or discoverable.
+    pub fn from_env() -> Result<Self, String> {
+        let configured = std::env::var(DRIVE_FACADE_URL_ENV).ok().unwrap_or_default();
         // DISCOVERY_SPEC §12.1: registry-first, configured URL as degradation.
-        let base_url = sdkwork_utils_rust::service_base_url::registry_base_url_or(
-            "sdkwork-drive",
-            &trim(&facade_url),
-        );
+        let base_url = registry_base_url_or("sdkwork-drive", &trim(&configured));
+        if is_blank(Some(base_url.as_str())) {
+            return Err(format!(
+                "SDKWORK_NOTES_DRIVE_MODE=http requires {DRIVE_FACADE_URL_ENV} (or a healthy \
+                 sdkwork-drive entry in the process service registry); refusing to boot without \
+                 a Drive endpoint"
+            ));
+        }
         let client = SdkworkAppClient::new_with_base_url(base_url)
             .map_err(|error| format!("initialize Drive SDK client failed: {error}"))?;
         if let Ok(token) = std::env::var("SDKWORK_ACCESS_TOKEN") {
@@ -55,7 +98,7 @@ impl SdkDriveAppFacadePageContentPort {
 }
 
 #[async_trait]
-impl DrivePageContentPort for SdkDriveAppFacadePageContentPort {
+impl DrivePageContentPort for HttpDrivePageContentPort {
     async fn create_page_content(
         &self,
         command: CreateDrivePageContentCommand,
@@ -74,14 +117,14 @@ impl DrivePageContentPort for SdkDriveAppFacadePageContentPort {
                 &body,
             )
             .await?;
-        build_snapshot(
+        Ok(snapshot_from_version(
             &space_id,
             &node_id,
             &version,
             &command.content_type,
             &command.content_schema_version,
             command.content,
-        )
+        ))
     }
 
     async fn update_page_content(
@@ -110,14 +153,14 @@ impl DrivePageContentPort for SdkDriveAppFacadePageContentPort {
                 &body,
             )
             .await?;
-        build_snapshot(
+        Ok(snapshot_from_version(
             &command.drive_space_id,
             &command.drive_node_id,
             &version,
             &command.content_type,
             &command.content_schema_version,
             command.content,
-        )
+        ))
     }
 
     async fn read_page_content(
@@ -134,14 +177,14 @@ impl DrivePageContentPort for SdkDriveAppFacadePageContentPort {
         let content = self
             .download_json_content(&command.tenant_id, &command.drive_node_id)
             .await?;
-        snapshot_from_version_and_content(
+        Ok(snapshot_from_version(
             &command.drive_space_id,
             &command.drive_node_id,
             &version,
-            "application/json",
-            "notes/v1",
+            &command.content_type,
+            &command.content_schema_version,
             content,
-        )
+        ))
     }
 
     async fn restore_page_content_version(
@@ -181,14 +224,14 @@ impl DrivePageContentPort for SdkDriveAppFacadePageContentPort {
         let content = self
             .download_json_content(&command.tenant_id, &command.drive_node_id)
             .await?;
-        snapshot_from_version_and_content(
+        Ok(snapshot_from_version(
             &command.drive_space_id,
             &command.drive_node_id,
             &after,
             &after.content_type,
-            "notes/v1",
+            RESTORE_CONTENT_SCHEMA_VERSION,
             content,
-        )
+        ))
     }
 
     async fn list_page_content_versions(
@@ -205,7 +248,13 @@ impl DrivePageContentPort for SdkDriveAppFacadePageContentPort {
             .iter()
             .skip(start)
             .take(command.page_size.max(1) as usize)
-            .map(map_file_version_summary)
+            .map(|version| {
+                build_version_summary(
+                    &version.id,
+                    version.version_no.parse::<i64>().unwrap_or(0),
+                    &version.created_at,
+                )
+            })
             .collect();
         let has_more = end < items.len();
         Ok(DriveVersionPage {
@@ -224,11 +273,11 @@ impl DrivePageContentPort for SdkDriveAppFacadePageContentPort {
     }
 }
 
-impl SdkDriveAppFacadePageContentPort {
+impl HttpDrivePageContentPort {
     async fn create_node_and_upload(
         &self,
         tenant_id: &str,
-        organization_id: &str,
+        _organization_id: &str,
         operator_id: &str,
         page_id: &str,
         title: &str,
@@ -236,8 +285,7 @@ impl SdkDriveAppFacadePageContentPort {
         parent_node_id: Option<&str>,
         content_type: &str,
         body: &[u8],
-    ) -> Result<(String, String, sdkwork_drive_app_sdk_generated_rust::FileVersion), NotesProductError>
-    {
+    ) -> Result<(String, String, FileVersion), NotesProductError> {
         let epoch_ms = current_epoch_ms();
         let upload_item_id = format!("notes-upload-{page_id}-{epoch_ms}");
         let task_id = format!("notes-task-{page_id}-{epoch_ms}");
@@ -267,15 +315,9 @@ impl SdkDriveAppFacadePageContentPort {
             })
             .await
             .map_err(map_drive_error("prepare Drive uploader upload"))?;
-        let upload_session_id = prepared
-            .upload_session
-            .id
-            .clone();
+        let upload_session_id = prepared.upload_session.id.clone();
         let node_id = prepared.upload_item.node_id.clone();
-        let space_id = prepared
-            .upload_item
-            .space_id
-            .clone();
+        let space_id = prepared.upload_item.space_id.clone();
         self.upload_single_part(
             tenant_id,
             operator_id,
@@ -300,7 +342,7 @@ impl SdkDriveAppFacadePageContentPort {
         page_id: &str,
         content_type: &str,
         body: &[u8],
-    ) -> Result<sdkwork_drive_app_sdk_generated_rust::FileVersion, NotesProductError> {
+    ) -> Result<FileVersion, NotesProductError> {
         let epoch_ms = current_epoch_ms();
         let session_id = format!("notes-session-{page_id}-{epoch_ms}");
         let checksum = sha256_prefixed(body);
@@ -363,17 +405,17 @@ impl SdkDriveAppFacadePageContentPort {
         let mut request = self
             .http
             .request(
-                reqwest::Method::from_bytes(presigned.method.as_bytes()).unwrap_or(reqwest::Method::PUT),
+                reqwest::Method::from_bytes(presigned.method.as_bytes())
+                    .unwrap_or(reqwest::Method::PUT),
                 &presigned.upload_url,
             )
             .body(body.to_vec());
         for (key, value) in presigned.headers {
             request = request.header(key, value);
         }
-        let response = request
-            .send()
-            .await
-            .map_err(|error| NotesProductError::Internal(format!("upload Drive object bytes failed: {error}")))?;
+        let response = request.send().await.map_err(|error| {
+            NotesProductError::Internal(format!("upload Drive object bytes failed: {error}"))
+        })?;
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
@@ -399,7 +441,9 @@ impl SdkDriveAppFacadePageContentPort {
                         offset_bytes: "0".to_string(),
                         size_bytes: body.len().to_string(),
                         etag: etag.clone(),
-                        checksum_sha256_hex: Some(checksum.strip_prefix("sha256:").unwrap_or(checksum).to_string()),
+                        checksum_sha256_hex: Some(
+                            checksum.strip_prefix("sha256:").unwrap_or(checksum).to_string(),
+                        ),
                         uploaded_at_epoch_ms: Some(current_epoch_ms().to_string()),
                     },
                 )
@@ -415,10 +459,7 @@ impl SdkDriveAppFacadePageContentPort {
                     content_type: content_type.to_string(),
                     content_length: body.len().to_string(),
                     checksum_sha256_hex: checksum.to_string(),
-                    parts: vec![CompletedUploadPart {
-                        part_no: 1,
-                        etag,
-                    }],
+                    parts: vec![CompletedUploadPart { part_no: 1, etag }],
                 },
             )
             .await
@@ -430,7 +471,7 @@ impl SdkDriveAppFacadePageContentPort {
         &self,
         node_id: &str,
         _tenant_id: &str,
-    ) -> Result<sdkwork_drive_app_sdk_generated_rust::FileVersion, NotesProductError> {
+    ) -> Result<FileVersion, NotesProductError> {
         let versions = self.list_all_versions(node_id, _tenant_id).await?;
         versions
             .into_iter()
@@ -443,7 +484,7 @@ impl SdkDriveAppFacadePageContentPort {
         node_id: &str,
         _tenant_id: &str,
         drive_version_id: &str,
-    ) -> Result<sdkwork_drive_app_sdk_generated_rust::FileVersion, NotesProductError> {
+    ) -> Result<FileVersion, NotesProductError> {
         let response = self
             .client
             .drive()
@@ -463,7 +504,7 @@ impl SdkDriveAppFacadePageContentPort {
         &self,
         node_id: &str,
         _tenant_id: &str,
-    ) -> Result<Vec<sdkwork_drive_app_sdk_generated_rust::FileVersion>, NotesProductError> {
+    ) -> Result<Vec<FileVersion>, NotesProductError> {
         let mut items = Vec::new();
         let mut page_token: Option<String> = None;
         loop {
@@ -504,7 +545,9 @@ impl SdkDriveAppFacadePageContentPort {
             .get(&download.download_url)
             .send()
             .await
-            .map_err(|error| NotesProductError::Internal(format!("download Drive content failed: {error}")))?;
+            .map_err(|error| {
+                NotesProductError::Internal(format!("download Drive content failed: {error}"))
+            })?;
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
@@ -512,10 +555,9 @@ impl SdkDriveAppFacadePageContentPort {
                 "download Drive content failed with status {status}: {body}"
             )));
         }
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|error| NotesProductError::Internal(format!("read Drive content bytes failed: {error}")))?;
+        let bytes = response.bytes().await.map_err(|error| {
+            NotesProductError::Internal(format!("read Drive content bytes failed: {error}"))
+        })?;
         serde_json::from_slice(&bytes).map_err(|error| {
             NotesProductError::Internal(format!("parse Drive page content json failed: {error}"))
         })
@@ -528,87 +570,26 @@ fn serialize_page_content(content: &Value) -> Result<Vec<u8>, NotesProductError>
     })
 }
 
-fn build_snapshot(
+/// Build the snapshot the Notes page row stores from a Drive file version and
+/// the page body that version holds.
+fn snapshot_from_version(
     drive_space_id: &str,
     drive_node_id: &str,
-    version: &sdkwork_drive_app_sdk_generated_rust::FileVersion,
+    version: &FileVersion,
     content_type: &str,
     content_schema_version: &str,
     content: Value,
-) -> Result<DrivePageContentSnapshot, NotesProductError> {
-    snapshot_from_version_and_content(
+) -> DrivePageContentSnapshot {
+    build_snapshot(PageSnapshotInput {
         drive_space_id,
         drive_node_id,
-        version,
+        drive_version_id: &version.id,
+        drive_version_no: version.version_no.parse::<i64>().unwrap_or(0),
         content_type,
         content_schema_version,
-        content,
-    )
-}
-
-fn snapshot_from_version_and_content(
-    drive_space_id: &str,
-    drive_node_id: &str,
-    version: &sdkwork_drive_app_sdk_generated_rust::FileVersion,
-    content_type: &str,
-    content_schema_version: &str,
-    content: Value,
-) -> Result<DrivePageContentSnapshot, NotesProductError> {
-    let (snippet, word_count, task_count) = extract_content_metrics(&content);
-    Ok(DrivePageContentSnapshot {
-        drive_space_id: drive_space_id.to_string(),
-        drive_node_id: drive_node_id.to_string(),
-        drive_uri: drive_uri(drive_space_id, drive_node_id),
-        drive_version_id: version.id.clone(),
-        drive_version_no: version.version_no.parse::<i64>().unwrap_or(0),
-        content_type: content_type.to_string(),
-        content_schema_version: content_schema_version.to_string(),
         content_hash: Some(version.checksum_sha256_hex.clone()),
-        snippet,
-        word_count,
-        task_count,
         content,
     })
-}
-
-fn map_file_version_summary(
-    version: &sdkwork_drive_app_sdk_generated_rust::FileVersion,
-) -> DriveVersionSummary {
-    DriveVersionSummary {
-        drive_version_id: version.id.clone(),
-        drive_version_no: version.version_no.parse::<i64>().unwrap_or(0),
-        version_kind: if version.version_no.parse::<i64>().unwrap_or(0) <= 1 {
-            "initial".to_string()
-        } else {
-            "auto".to_string()
-        },
-        version_label: None,
-        change_summary: None,
-        created_at: version.created_at.clone(),
-    }
-}
-
-fn extract_content_metrics(content: &Value) -> (Option<String>, i64, i64) {
-    let snippet = content
-        .get("title")
-        .or_else(|| content.get("snippet"))
-        .and_then(Value::as_str)
-        .map(str::to_string);
-    let word_count = content
-        .get("wordCount")
-        .or_else(|| content.get("word_count"))
-        .and_then(Value::as_i64)
-        .unwrap_or(0);
-    let task_count = content
-        .get("taskCount")
-        .or_else(|| content.get("task_count"))
-        .and_then(Value::as_i64)
-        .unwrap_or(0);
-    (snippet, word_count, task_count)
-}
-
-fn drive_uri(drive_space_id: &str, drive_node_id: &str) -> String {
-    format!("drive://spaces/{drive_space_id}/nodes/{drive_node_id}")
 }
 
 fn sha256_prefixed(body: &[u8]) -> String {

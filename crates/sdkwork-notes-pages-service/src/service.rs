@@ -665,11 +665,14 @@ where
             .read_page_content(ReadDrivePageContentCommand {
                 tenant_id: context.tenant_id.clone(),
                 organization_id: context.organization_id.clone(),
+                operator_id: context.operator_id.clone(),
                 page_id: page.id.clone(),
                 drive_space_id: page.drive_space_id.clone(),
                 drive_node_id: page.drive_node_id.clone(),
                 drive_uri: page.drive_uri.clone(),
                 current_drive_version_id: page.current_drive_version_id.clone(),
+                content_type: page.content_type.clone(),
+                content_schema_version: page.content_schema_version.clone(),
             })
             .await?;
         validate_drive_snapshot("read page content", &drive_snapshot)?;
@@ -719,6 +722,7 @@ where
             .list_page_content_versions(ListDrivePageContentVersionsCommand {
                 tenant_id: context.tenant_id,
                 organization_id: context.organization_id,
+                operator_id: context.operator_id,
                 page_id: page.id,
                 drive_space_id: page.drive_space_id,
                 drive_node_id: page.drive_node_id,

@@ -400,14 +400,27 @@ test('wires native app composition verification into pnpm check and verify', () 
   assert.match(packageJson.scripts['check:app-composition'], /verify-repo\.mjs/);
 });
 
-test('integrates sdkwork-drive through generated Rust app SDK facade', () => {
+test('integrates sdkwork-drive in-process with an opt-in generated-SDK adapter', () => {
   const rootCargo = read('Cargo.toml');
-  assert.match(rootCargo, /sdkwork_drive_app_sdk_generated_rust/);
+  assert.match(rootCargo, /sdkwork-drive-workspace-service/);
+  assert.match(rootCargo, /sdkwork-drive-object-runtime/);
+  assert.match(rootCargo, /sdkwork-drive-storage-contract/);
+  assert.match(rootCargo, /sdkwork-drive-app-sdk-generated-rust/);
 
-  const facade = read('crates/sdkwork-api-notes-standalone-gateway/src/bootstrap/drive_app_sdk_facade.rs');
-  assert.match(facade, /sdkwork_drive_app_sdk_generated_rust/);
-  assert.match(facade, /uploader_uploads_prepare/);
-  assert.match(facade, /upload_sessions_complete/);
+  const inProcess = read('crates/sdkwork-api-notes-assembly/src/service/drive_in_process.rs');
+  assert.match(inProcess, /DriveUploaderService/);
+  assert.match(inProcess, /complete_stored_version/);
+  assert.match(inProcess, /resolve_effective_node_access/);
+
+  const adapter = read('crates/sdkwork-api-notes-assembly/src/service/drive_http_adapter.rs');
+  assert.match(adapter, /sdkwork_drive_app_sdk_generated_rust/);
+  assert.match(adapter, /uploader_uploads_create/);
+  assert.match(adapter, /upload_sessions_complete/);
+
+  const allowlist = readJson('specs/backend-module-call-boundary.allow.json');
+  const driveEntry = allowlist.allow?.find((item) => item.envVar === 'SDKWORK_DRIVE_FACADE_URL');
+  assert.ok(driveEntry, 'the opt-in Drive endpoint must be recorded with a reason');
+  assert.ok(driveEntry.reason.length > 0, 'the allowlist entry needs a written reason');
 
   const appAssembly = readJson('sdks/sdkwork-notes-app-sdk/sdk-manifest.json');
   const driveDependency = appAssembly.sdkDependencies?.find(
@@ -416,13 +429,38 @@ test('integrates sdkwork-drive through generated Rust app SDK facade', () => {
   assert.ok(driveDependency, 'app SDK assembly must declare sdkwork-drive-app-sdk');
 });
 
-test('production topology profiles configure Drive facade instead of memory drive', () => {
+test('topology makes the Drive transport explicit and startup-validated', () => {
+  // Profiles that run Notes as its own gateway process keep the explicit,
+  // startup-validated HTTP opt-in: in-process Drive needs the Drive storage
+  // configuration that only the Drive host carries.
   for (const profilePath of [
     'etc/topology/cloud.production.env',
+    'etc/topology/cloud.demo.env',
     'etc/topology/standalone.production.env',
   ]) {
     const profileEnv = read(profilePath);
-    assert.match(profileEnv, /SDKWORK_NOTES_USE_MEMORY_DRIVE=0/);
+    assert.match(profileEnv, /SDKWORK_NOTES_DRIVE_MODE=http/);
     assert.match(profileEnv, /SDKWORK_DRIVE_FACADE_URL=https:\/\//);
+  }
+
+  // Development, test, and staging keep the local in-memory Drive explicitly.
+  for (const profilePath of [
+    'etc/topology/cloud.development.env',
+    'etc/topology/cloud.test.env',
+    'etc/topology/cloud.staging.env',
+  ]) {
+    assert.match(read(profilePath), /SDKWORK_NOTES_DRIVE_MODE=memory/);
+  }
+
+  // The retired implicit switch is gone from every resolved profile.
+  for (const profileName of readdirSync(path.join(ROOT, 'etc/topology'))) {
+    if (!profileName.endsWith('.env')) {
+      continue;
+    }
+    assert.doesNotMatch(
+      read(`etc/topology/${profileName}`),
+      /SDKWORK_NOTES_USE_MEMORY_DRIVE/,
+      `${profileName} must not keep the retired implicit memory switch`,
+    );
   }
 });
