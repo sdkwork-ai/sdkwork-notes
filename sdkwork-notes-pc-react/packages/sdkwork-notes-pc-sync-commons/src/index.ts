@@ -1,11 +1,18 @@
 import {
+  clearNotesLegacyUnscopedStorageKey,
   normalizeString,
   normalizeNullableString,
   normalizeStringArray,
+  resolveNotesScopedStorageKey,
   toErrorMessage,
 } from '@sdkwork/notes-pc-commons';
 
 export const NOTES_SYNC_PACKAGE = '@sdkwork/notes-pc-sync-commons';
+/**
+ * Base storage key. Persisted queues are written under
+ * `<base>:<tenantId>:<userId>` whenever an account scope is available, so the
+ * unscoped key below only survives as the legacy/standalone fallback.
+ */
 export const NOTES_SYNC_QUEUE_STORAGE_KEY = 'sdkwork-notes-sync-queue';
 export const NOTES_SYNC_QUEUE_SCHEMA_VERSION = 2;
 export const DEFAULT_NOTES_SYNC_RETRY_DELAYS_MS = [1000, 5000, 15000] as const;
@@ -153,6 +160,12 @@ export interface NotesSyncQueueStore {
 export interface CreateBrowserNotesSyncQueueStoreOptions {
   storage?: NotesSyncStorageAdapter;
   storageKey?: string;
+  /**
+   * Resolves the account-scoped storage key for the current operation.
+   * Returning `null` disables persistence (signed out / unknown account) so a
+   * pending queue can never be replayed under another account's token.
+   */
+  resolveStorageKey?: () => string | null;
 }
 
 export interface NotesSyncRetryPolicy {
@@ -1012,8 +1025,41 @@ export function createBrowserNotesSyncQueueStore(
   options: CreateBrowserNotesSyncQueueStoreOptions = {},
 ): NotesSyncQueueStore {
   const storage = resolveBrowserStorage(options.storage);
-  const storageKey = options.storageKey ?? NOTES_SYNC_QUEUE_STORAGE_KEY;
-  let currentSnapshot = readStoredNotesSyncQueueSnapshot(storage, storageKey);
+  const fixedStorageKey = options.storageKey;
+  const resolveStorageKey = options.resolveStorageKey
+    ?? (() => resolveNotesScopedStorageKey(NOTES_SYNC_QUEUE_STORAGE_KEY));
+  const usesAccountScope = fixedStorageKey === undefined;
+  let legacyUnscopedKeyPurged = false;
+
+  // The legacy unscoped queue has no owner, so it must never be adopted (that
+  // would replay another account's mutations). Drop it on first scoped use.
+  const purgeLegacyUnscopedKeyOnce = (activeStorageKey: string) => {
+    if (legacyUnscopedKeyPurged) {
+      return;
+    }
+    legacyUnscopedKeyPurged = true;
+    if (activeStorageKey !== NOTES_SYNC_QUEUE_STORAGE_KEY) {
+      clearNotesLegacyUnscopedStorageKey(storage, NOTES_SYNC_QUEUE_STORAGE_KEY);
+    }
+  };
+
+  const resolveActiveStorageKey = (): string | null => {
+    const storageKey = fixedStorageKey ?? resolveStorageKey();
+    if (!storageKey) {
+      return null;
+    }
+    if (usesAccountScope) {
+      purgeLegacyUnscopedKeyOnce(storageKey);
+    }
+    return storageKey;
+  };
+
+  let currentSnapshot = (() => {
+    const storageKey = resolveActiveStorageKey();
+    return storageKey
+      ? readStoredNotesSyncQueueSnapshot(storage, storageKey)
+      : createEmptyNotesSyncQueueSnapshot();
+  })();
   const listeners = new Set<(snapshot: NotesSyncQueueSnapshot) => void>();
 
   const notifyListeners = (snapshot: NotesSyncQueueSnapshot) => {
@@ -1024,11 +1070,21 @@ export function createBrowserNotesSyncQueueStore(
 
   return {
     async loadQueue() {
-      currentSnapshot = readStoredNotesSyncQueueSnapshot(storage, storageKey);
+      const storageKey = resolveActiveStorageKey();
+      currentSnapshot = storageKey
+        ? readStoredNotesSyncQueueSnapshot(storage, storageKey)
+        : createEmptyNotesSyncQueueSnapshot();
       return currentSnapshot;
     },
     async saveQueue(snapshot) {
+      const storageKey = resolveActiveStorageKey();
       currentSnapshot = resolveNotesSyncQueueSnapshot(snapshot);
+      if (!storageKey) {
+        // Signed out / unknown account: keep the in-memory snapshot only and
+        // never write it to a shared key.
+        notifyListeners(currentSnapshot);
+        return;
+      }
       writeNotesSyncQueueSnapshot(
         storage,
         storageKey,
@@ -1037,7 +1093,10 @@ export function createBrowserNotesSyncQueueStore(
       notifyListeners(currentSnapshot);
     },
     async clearQueue() {
-      storage.removeItem(storageKey);
+      const storageKey = resolveActiveStorageKey();
+      if (storageKey) {
+        storage.removeItem(storageKey);
+      }
       currentSnapshot = createEmptyNotesSyncQueueSnapshot();
       notifyListeners(currentSnapshot);
     },

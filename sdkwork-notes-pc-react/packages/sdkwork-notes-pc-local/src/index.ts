@@ -1,6 +1,16 @@
-import { normalizeString, normalizeStringArray } from '@sdkwork/notes-pc-commons';
+import {
+  clearNotesLegacyUnscopedStorageKey,
+  normalizeString,
+  normalizeStringArray,
+  resolveNotesScopedStorageKey,
+} from '@sdkwork/notes-pc-commons';
 
 export const NOTES_LOCAL_PACKAGE = '@sdkwork/notes-pc-local';
+/**
+ * Base storage key. Persisted data is written under
+ * `<base>:<tenantId>:<userId>` whenever an account scope is available, so the
+ * unscoped key below only survives as the legacy/standalone fallback.
+ */
 export const NOTES_LOCAL_WORKSPACE_STORAGE_KEY = 'sdkwork-notes-local-workspace';
 export const NOTES_LOCAL_WORKSPACE_SCHEMA_VERSION = 1;
 
@@ -67,6 +77,12 @@ export interface NotesLocalStore {
 export interface CreateBrowserNotesLocalStoreOptions {
   storage?: NotesLocalStorageAdapter;
   storageKey?: string;
+  /**
+   * Resolves the account-scoped storage key for the current operation.
+   * Returning `null` disables persistence (signed out / unknown account), which
+   * is the fail-closed behavior: drafts must never fall back to a shared key.
+   */
+  resolveStorageKey?: () => string | null;
 }
 
 function normalizeRecordRef(value: unknown): NotesLocalRecordRef | null {
@@ -293,15 +309,47 @@ export function createBrowserNotesLocalStore(
   options: CreateBrowserNotesLocalStoreOptions = {},
 ): NotesLocalStore {
   const storage = resolveBrowserStorage(options.storage);
-  const storageKey = options.storageKey ?? NOTES_LOCAL_WORKSPACE_STORAGE_KEY;
+  const fixedStorageKey = options.storageKey;
+  const resolveStorageKey = options.resolveStorageKey
+    ?? (() => resolveNotesScopedStorageKey(NOTES_LOCAL_WORKSPACE_STORAGE_KEY));
+  const usesAccountScope = fixedStorageKey === undefined;
+  let legacyUnscopedKeyPurged = false;
+
+  // The legacy unscoped key has no owner, so it can never be adopted safely:
+  // drop it the first time an account-scoped key is used instead.
+  const purgeLegacyUnscopedKeyOnce = (activeStorageKey: string) => {
+    if (legacyUnscopedKeyPurged) {
+      return;
+    }
+    legacyUnscopedKeyPurged = true;
+    if (activeStorageKey !== NOTES_LOCAL_WORKSPACE_STORAGE_KEY) {
+      clearNotesLegacyUnscopedStorageKey(storage, NOTES_LOCAL_WORKSPACE_STORAGE_KEY);
+    }
+  };
+
+  const resolveActiveStorageKey = (): string | null => {
+    const storageKey = fixedStorageKey ?? resolveStorageKey();
+    if (!storageKey) {
+      return null;
+    }
+    if (usesAccountScope) {
+      purgeLegacyUnscopedKeyOnce(storageKey);
+    }
+    return storageKey;
+  };
 
   return {
     async loadWorkspace() {
+      const storageKey = resolveActiveStorageKey();
+      if (!storageKey) {
+        return createEmptyNotesLocalWorkspaceSnapshot();
+      }
       return readStoredWorkspaceSnapshot(storage, storageKey);
     },
     async saveDraft(snapshot) {
       const normalizedSnapshot = normalizeDraftSnapshot(snapshot);
-      if (!normalizedSnapshot) {
+      const storageKey = resolveActiveStorageKey();
+      if (!normalizedSnapshot || !storageKey) {
         return;
       }
 
@@ -316,7 +364,8 @@ export function createBrowserNotesLocalStore(
     },
     async clearDraft(noteId) {
       const normalizedNoteId = normalizeString(noteId);
-      if (!normalizedNoteId) {
+      const storageKey = resolveActiveStorageKey();
+      if (!normalizedNoteId || !storageKey) {
         return;
       }
 
