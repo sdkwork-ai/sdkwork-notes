@@ -176,5 +176,35 @@
         "source": "openapi"
       }
     ]
+  },
+  "roles": {
+    "domainStandardRoles": [],
+    "roleExclusions": [],
+    "roleGrantExtensions": [
+      {
+        "roleCode": "app_user",
+        "patterns": [
+          "notes.ai_jobs.write",
+          "notes.ai_suggestions.feedback.write",
+          "notes.ai_suggestions.write",
+          "notes.pages.ai_suggestions.read",
+          "notes.pages.content.read",
+          "notes.pages.content.write",
+          "notes.pages.read",
+          "notes.pages.versions.read",
+          "notes.pages.versions.write",
+          "notes.pages.write",
+          "notes.search.query",
+          "notes.workspaces.read",
+          "notes.workspaces.write"
+        ]
+      },
+      {
+        "roleCode": "org_admin",
+        "patterns": [
+          "notes.*"
+        ]
+      }
+    ]
   }
 }

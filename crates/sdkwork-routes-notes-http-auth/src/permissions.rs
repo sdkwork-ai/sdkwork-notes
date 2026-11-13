@@ -3,7 +3,10 @@ use sdkwork_web_core::WebRequestContext;
 
 use crate::actor_context::AuthProblem;
 
-pub fn require_permission(context: &WebRequestContext, permission: &str) -> Result<(), AuthProblem> {
+pub fn require_permission(
+    context: &WebRequestContext,
+    permission: &str,
+) -> Result<(), AuthProblem> {
     let principal = context.principal.as_ref().ok_or_else(|| {
         AuthProblem::new(
             StatusCode::UNAUTHORIZED,
@@ -12,12 +15,10 @@ pub fn require_permission(context: &WebRequestContext, permission: &str) -> Resu
         )
     })?;
 
-    if principal
-        .scopes
-        .permission_scope
-        .iter()
-        .any(|scope| scope == permission || scope == "notes.*" || scope == "*")
-    {
+    if sdkwork_web_core::request_context::permission_scope_matches_any(
+        &principal.scopes.permission_scope,
+        permission,
+    ) {
         return Ok(());
     }
 
