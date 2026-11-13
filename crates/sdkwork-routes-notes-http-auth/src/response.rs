@@ -2,10 +2,10 @@ use axum::http::{HeaderName, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use sdkwork_notes_pages_service::error::NotesProductError;
-use sdkwork_utils_rust::{
-    legacy_wire_result_code, SdkWorkApiResponse, SdkWorkResultCode,
+use sdkwork_utils_rust::{legacy_wire_result_code, SdkWorkApiResponse, SdkWorkResultCode};
+use sdkwork_web_core::{
+    problem_response, WebFrameworkError, WebFrameworkErrorKind, WebRequestContext,
 };
-use sdkwork_web_core::{problem_response, WebFrameworkError, WebFrameworkErrorKind, WebRequestContext};
 use serde::Serialize;
 
 pub type ApiResult<T> = Result<T, ApiProblem>;
@@ -84,8 +84,12 @@ impl ApiProblem {
                 WebFrameworkErrorKind::Forbidden => SdkWorkResultCode::PermissionRequired,
                 WebFrameworkErrorKind::NotFound => SdkWorkResultCode::NotFound,
                 WebFrameworkErrorKind::Conflict => SdkWorkResultCode::Conflict,
-                WebFrameworkErrorKind::MissingCredentials => SdkWorkResultCode::AuthenticationRequired,
-                WebFrameworkErrorKind::DependencyUnavailable => SdkWorkResultCode::ServiceUnavailable,
+                WebFrameworkErrorKind::MissingCredentials => {
+                    SdkWorkResultCode::AuthenticationRequired
+                }
+                WebFrameworkErrorKind::DependencyUnavailable => {
+                    SdkWorkResultCode::ServiceUnavailable
+                }
                 _ => SdkWorkResultCode::InternalError,
             },
         }
@@ -108,7 +112,9 @@ impl ApiProblem {
                 | SdkWorkResultCode::OrganizationAccessDenied => WebFrameworkErrorKind::Forbidden,
                 SdkWorkResultCode::NotFound => WebFrameworkErrorKind::NotFound,
                 SdkWorkResultCode::Conflict => WebFrameworkErrorKind::Conflict,
-                SdkWorkResultCode::ServiceUnavailable => WebFrameworkErrorKind::DependencyUnavailable,
+                SdkWorkResultCode::ServiceUnavailable => {
+                    WebFrameworkErrorKind::DependencyUnavailable
+                }
                 _ => WebFrameworkErrorKind::InternalServerError,
             },
             message: self.message.clone(),
@@ -171,30 +177,41 @@ fn success_response<T: Serialize>(
 
 fn attach_trace_header(response: &mut Response, trace_id: &str) {
     if let Ok(value) = HeaderValue::from_str(trace_id) {
-        response.headers_mut().insert(
-            HeaderName::from_static("x-sdkwork-trace-id"),
-            value,
-        );
+        response
+            .headers_mut()
+            .insert(HeaderName::from_static("x-sdkwork-trace-id"), value);
     }
 }
 
 pub fn finish_api_json<T: Serialize>(ctx: &WebRequestContext, result: ApiResult<T>) -> Response {
     match result {
-        Ok(data) => success_json(ctx, data).unwrap_or_else(|problem| problem.into_response_for(ctx)),
+        Ok(data) => {
+            success_json(ctx, data).unwrap_or_else(|problem| problem.into_response_for(ctx))
+        }
         Err(problem) => problem.into_response_for(ctx),
     }
 }
 
-pub fn finish_created_json<T: Serialize>(ctx: &WebRequestContext, result: ApiResult<T>) -> Response {
+pub fn finish_created_json<T: Serialize>(
+    ctx: &WebRequestContext,
+    result: ApiResult<T>,
+) -> Response {
     match result {
-        Ok(data) => created_json(ctx, data).unwrap_or_else(|problem| problem.into_response_for(ctx)),
+        Ok(data) => {
+            created_json(ctx, data).unwrap_or_else(|problem| problem.into_response_for(ctx))
+        }
         Err(problem) => problem.into_response_for(ctx),
     }
 }
 
-pub fn finish_accepted_json<T: Serialize>(ctx: &WebRequestContext, result: ApiResult<T>) -> Response {
+pub fn finish_accepted_json<T: Serialize>(
+    ctx: &WebRequestContext,
+    result: ApiResult<T>,
+) -> Response {
     match result {
-        Ok(data) => accepted_json(ctx, data).unwrap_or_else(|problem| problem.into_response_for(ctx)),
+        Ok(data) => {
+            accepted_json(ctx, data).unwrap_or_else(|problem| problem.into_response_for(ctx))
+        }
         Err(problem) => problem.into_response_for(ctx),
     }
 }
