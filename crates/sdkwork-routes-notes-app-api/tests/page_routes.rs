@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use axum::body::{to_bytes, Body};
 use http::{Method, Request, StatusCode};
+use sdkwork_notes_pages_repository_sqlx::install_sqlite_schema;
+use sdkwork_notes_pages_repository_sqlx::notes_store::SqlNotesStore;
 use sdkwork_notes_pages_service::domain::{
     ClaimAiJobCommand, CompleteAiJobCommand, CompleteAiSuggestionInput, CreateAiJobCommand,
     CreatePageCommand, CreateWorkspaceCommand, DrivePageContentSnapshot, DriveVersionPage,
     DriveVersionSummary, NotesActorContext, PageInfo, PageKind,
 };
-use sdkwork_notes_pages_repository_sqlx::install_sqlite_schema;
-use sdkwork_notes_pages_repository_sqlx::notes_store::SqlNotesStore;
 use sdkwork_notes_pages_service::ports::{
     CreateDrivePageContentCommand, DrivePageContentPort, ListDrivePageContentVersionsCommand,
     ReadDrivePageContentCommand, RestoreDrivePageContentVersionCommand,
@@ -81,9 +81,7 @@ async fn app_api_routes_create_page_and_update_drive_backed_content() {
         .oneshot(
             auth_request_builder()
                 .method(Method::GET)
-                .uri(
-                    "/app/v3/api/notes/workspaces?page=1&page_size=1",
-                )
+                .uri("/app/v3/api/notes/workspaces?page=1&page_size=1")
                 .body(Body::empty())
                 .expect("workspace list request should be built"),
         )
@@ -164,9 +162,7 @@ async fn app_api_routes_create_page_and_update_drive_backed_content() {
         .oneshot(
             auth_request_builder()
                 .method(Method::GET)
-                .uri(
-                    "/app/v3/api/notes/workspaces/workspace-001/bootstrap",
-                )
+                .uri("/app/v3/api/notes/workspaces/workspace-001/bootstrap")
                 .body(Body::empty())
                 .expect("bootstrap request should be built"),
         )
@@ -291,9 +287,7 @@ async fn app_api_routes_create_page_and_update_drive_backed_content() {
         .oneshot(
             auth_request_builder()
                 .method(Method::GET)
-                .uri(
-                    "/app/v3/api/notes/pages/page-001/content",
-                )
+                .uri("/app/v3/api/notes/pages/page-001/content")
                 .body(Body::empty())
                 .expect("content request should be built"),
         )
@@ -308,9 +302,7 @@ async fn app_api_routes_create_page_and_update_drive_backed_content() {
         .oneshot(
             auth_request_builder()
                 .method(Method::GET)
-                .uri(
-                    "/app/v3/api/notes/pages/page-001/versions?page=1&page_size=20",
-                )
+                .uri("/app/v3/api/notes/pages/page-001/versions?page=1&page_size=20")
                 .body(Body::empty())
                 .expect("versions request should be built"),
         )
@@ -357,9 +349,7 @@ async fn app_api_routes_create_page_and_update_drive_backed_content() {
         .oneshot(
             auth_request_builder()
                 .method(Method::GET)
-                .uri(
-                    "/app/v3/api/notes/search?workspace_id=workspace-001&q=v2&page=1&page_size=20",
-                )
+                .uri("/app/v3/api/notes/search?workspace_id=workspace-001&q=v2&page=1&page_size=20")
                 .body(Body::empty())
                 .expect("search request should be built"),
         )
@@ -727,9 +717,7 @@ async fn app_api_routes_update_content_preserves_existing_content_metadata_when_
         .oneshot(
             auth_request_builder()
                 .method(Method::GET)
-                .uri(
-                    "/app/v3/api/notes/pages/page-canvas-001",
-                )
+                .uri("/app/v3/api/notes/pages/page-canvas-001")
                 .body(Body::empty())
                 .expect("page request should be built"),
         )
@@ -767,9 +755,7 @@ async fn app_api_routes_list_page_ai_suggestions() {
         .oneshot(
             auth_request_builder()
                 .method(Method::GET)
-                .uri(
-                    "/app/v3/api/notes/pages/page-001/ai_suggestions?page=1&page_size=20",
-                )
+                .uri("/app/v3/api/notes/pages/page-001/ai_suggestions?page=1&page_size=20")
                 .body(Body::empty())
                 .expect("page AI suggestions request should be built"),
         )
@@ -820,9 +806,7 @@ async fn app_api_routes_create_ai_suggestion_feedback() {
         .oneshot(
             auth_request_builder()
                 .method(Method::GET)
-                .uri(
-                    "/app/v3/api/notes/pages/page-001/ai_suggestions?page=1&page_size=20",
-                )
+                .uri("/app/v3/api/notes/pages/page-001/ai_suggestions?page=1&page_size=20")
                 .body(Body::empty())
                 .expect("page AI suggestions request should be built"),
         )
@@ -877,9 +861,7 @@ async fn app_api_routes_accept_and_reject_ai_suggestions() {
         .oneshot(
             auth_request_builder()
                 .method(Method::GET)
-                .uri(
-                    "/app/v3/api/notes/pages/page-001/ai_suggestions?page=1&page_size=20",
-                )
+                .uri("/app/v3/api/notes/pages/page-001/ai_suggestions?page=1&page_size=20")
                 .body(Body::empty())
                 .expect("page AI suggestions request should be built"),
         )
@@ -908,8 +890,7 @@ async fn app_api_routes_accept_and_reject_ai_suggestions() {
         .oneshot(json_request(
             Method::POST,
             &format!("/app/v3/api/notes/ai_suggestions/{summary_id}/accept"),
-            json!({
-            }),
+            json!({}),
         ))
         .await
         .expect("AI suggestion accept request should be handled");
@@ -923,8 +904,7 @@ async fn app_api_routes_accept_and_reject_ai_suggestions() {
         .oneshot(json_request(
             Method::POST,
             &format!("/app/v3/api/notes/ai_suggestions/{tag_id}/reject"),
-            json!({
-            }),
+            json!({}),
         ))
         .await
         .expect("AI suggestion reject request should be handled");
@@ -937,8 +917,7 @@ async fn app_api_routes_accept_and_reject_ai_suggestions() {
         .oneshot(json_request(
             Method::POST,
             &format!("/app/v3/api/notes/ai_suggestions/{summary_id}/reject"),
-            json!({
-            }),
+            json!({}),
         ))
         .await
         .expect("conflicting AI suggestion reject request should be handled");
@@ -969,9 +948,7 @@ async fn app_api_routes_apply_accepted_ai_suggestion() {
         .oneshot(
             auth_request_builder()
                 .method(Method::GET)
-                .uri(
-                    "/app/v3/api/notes/pages/page-001/ai_suggestions?page=1&page_size=20",
-                )
+                .uri("/app/v3/api/notes/pages/page-001/ai_suggestions?page=1&page_size=20")
                 .body(Body::empty())
                 .expect("page AI suggestions request should be built"),
         )
@@ -989,8 +966,7 @@ async fn app_api_routes_apply_accepted_ai_suggestion() {
         .oneshot(json_request(
             Method::POST,
             &format!("/app/v3/api/notes/ai_suggestions/{suggestion_id}/accept"),
-            json!({
-            }),
+            json!({}),
         ))
         .await
         .expect("AI suggestion accept request should be handled");
@@ -1026,6 +1002,7 @@ async fn seed_completed_ai_suggestion(
         tenant_id: "100001".to_string(),
         organization_id: "0".to_string(),
         operator_id: "30".to_string(),
+        caller: sdkwork_notes_pages_service::domain::CallerCredentials::default(),
     };
     let workspace = service
         .create_workspace(CreateWorkspaceCommand {
@@ -1099,6 +1076,7 @@ async fn seed_applicable_ai_suggestion(
         tenant_id: "100001".to_string(),
         organization_id: "0".to_string(),
         operator_id: "30".to_string(),
+        caller: sdkwork_notes_pages_service::domain::CallerCredentials::default(),
     };
     let workspace = service
         .create_workspace(CreateWorkspaceCommand {
@@ -1181,6 +1159,7 @@ async fn seed_two_completed_ai_suggestions(
         tenant_id: "100001".to_string(),
         organization_id: "0".to_string(),
         operator_id: "30".to_string(),
+        caller: sdkwork_notes_pages_service::domain::CallerCredentials::default(),
     };
     let workspace = service
         .create_workspace(CreateWorkspaceCommand {
@@ -1312,7 +1291,8 @@ impl DrivePageContentPort for FakeDrivePageContentPort {
     async fn create_page_content(
         &self,
         command: CreateDrivePageContentCommand,
-    ) -> Result<DrivePageContentSnapshot, sdkwork_notes_pages_service::error::NotesProductError> {
+    ) -> Result<DrivePageContentSnapshot, sdkwork_notes_pages_service::error::NotesProductError>
+    {
         let snapshot = DrivePageContentSnapshot {
             drive_space_id: command.drive_space_id.clone(),
             drive_node_id: format!("drive-node-{}", command.page_id),
@@ -1346,7 +1326,8 @@ impl DrivePageContentPort for FakeDrivePageContentPort {
     async fn update_page_content(
         &self,
         command: UpdateDrivePageContentCommand,
-    ) -> Result<DrivePageContentSnapshot, sdkwork_notes_pages_service::error::NotesProductError> {
+    ) -> Result<DrivePageContentSnapshot, sdkwork_notes_pages_service::error::NotesProductError>
+    {
         let snapshot = DrivePageContentSnapshot {
             drive_space_id: command.drive_space_id.clone(),
             drive_node_id: command.drive_node_id.clone(),
@@ -1377,7 +1358,8 @@ impl DrivePageContentPort for FakeDrivePageContentPort {
     async fn read_page_content(
         &self,
         command: ReadDrivePageContentCommand,
-    ) -> Result<DrivePageContentSnapshot, sdkwork_notes_pages_service::error::NotesProductError> {
+    ) -> Result<DrivePageContentSnapshot, sdkwork_notes_pages_service::error::NotesProductError>
+    {
         self.records
             .lock()
             .await
@@ -1393,7 +1375,8 @@ impl DrivePageContentPort for FakeDrivePageContentPort {
     async fn restore_page_content_version(
         &self,
         command: RestoreDrivePageContentVersionCommand,
-    ) -> Result<DrivePageContentSnapshot, sdkwork_notes_pages_service::error::NotesProductError> {
+    ) -> Result<DrivePageContentSnapshot, sdkwork_notes_pages_service::error::NotesProductError>
+    {
         let source = self
             .versions
             .lock()

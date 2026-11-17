@@ -1,3 +1,4 @@
+use crate::domain::CallerCredentials;
 use crate::domain::{
     AiFeedback, AiJob, AiJobSource, AiSuggestion, DrivePageContentSnapshot, DriveVersionPage,
     NewAiFeedback, NewAiJob, NewAiSuggestion, NewPage, NewWorkspace, NotesActorContext, Page,
@@ -232,6 +233,8 @@ pub struct CreateDrivePageContentCommand {
     pub content_type: String,
     pub content_schema_version: String,
     pub change_summary: Option<String>,
+    /// Verified caller dual credentials for the outbound Drive call.
+    pub caller: CallerCredentials,
 }
 
 #[derive(Debug, Clone)]
@@ -251,6 +254,8 @@ pub struct UpdateDrivePageContentCommand {
     pub change_summary: Option<String>,
     pub expected_drive_version_id: Option<String>,
     pub create_checkpoint: bool,
+    /// Verified caller dual credentials for the outbound Drive call.
+    pub caller: CallerCredentials,
 }
 
 #[derive(Debug, Clone)]
@@ -271,6 +276,8 @@ pub struct ReadDrivePageContentCommand {
     /// The page's recorded content schema version (Notes metadata, not stored
     /// by Drive).
     pub content_schema_version: String,
+    /// Verified caller dual credentials for the outbound Drive call.
+    pub caller: CallerCredentials,
 }
 
 #[derive(Debug, Clone)]
@@ -285,6 +292,8 @@ pub struct RestoreDrivePageContentVersionCommand {
     pub current_drive_version_id: String,
     pub drive_version_id: String,
     pub expected_current_drive_version_id: Option<String>,
+    /// Verified caller dual credentials for the outbound Drive call.
+    pub caller: CallerCredentials,
 }
 
 #[derive(Debug, Clone)]
@@ -301,4 +310,6 @@ pub struct ListDrivePageContentVersionsCommand {
     pub current_drive_version_id: String,
     pub page: i64,
     pub page_size: i64,
+    /// Verified caller dual credentials for the outbound Drive call.
+    pub caller: CallerCredentials,
 }

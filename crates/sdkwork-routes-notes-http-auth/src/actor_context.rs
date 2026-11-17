@@ -40,5 +40,8 @@ pub fn actor_context_from_web_request(
         tenant_id: trim(principal.tenant_id()).to_owned(),
         organization_id: trim(&organization_id).to_owned(),
         operator_id: trim(principal.user_id()).to_owned(),
+        // APP_SDK_INTEGRATION_SPEC §5.2.1: forward the caller's own dual
+        // tokens to user-scoped dependency calls (Drive app-api).
+        caller: sdkwork_web_core::current_caller_credentials(),
     })
 }
