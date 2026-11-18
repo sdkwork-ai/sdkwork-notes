@@ -1,9 +1,9 @@
+use sdkwork_notes_pages_repository_sqlx::install_sqlite_schema;
+use sdkwork_notes_pages_repository_sqlx::notes_store::SqlNotesStore;
 use sdkwork_notes_pages_service::domain::{
     DrivePageContentSnapshot, NewPage, NewWorkspace, NotesActorContext, PageKind, PageMetadataPatch,
 };
 use sdkwork_notes_pages_service::error::NotesProductError;
-use sdkwork_notes_pages_repository_sqlx::install_sqlite_schema;
-use sdkwork_notes_pages_repository_sqlx::notes_store::SqlNotesStore;
 use sdkwork_notes_pages_service::ports::NotesRepository;
 use serde_json::json;
 use sqlx::any::AnyPoolOptions;
@@ -280,6 +280,7 @@ async fn sql_repository_rejects_stale_metadata_and_drive_pointer_writes_atomical
         tenant_id: "100001".to_string(),
         organization_id: "0".to_string(),
         operator_id: "30".to_string(),
+        caller: sdkwork_notes_pages_service::domain::CallerCredentials::default(),
     };
     repository
         .insert_workspace(NewWorkspace {
@@ -392,6 +393,7 @@ async fn sql_repository_search_uses_current_indexed_projection_and_ignores_stale
         tenant_id: "100001".to_string(),
         organization_id: "0".to_string(),
         operator_id: "30".to_string(),
+        caller: sdkwork_notes_pages_service::domain::CallerCredentials::default(),
     };
     repository
         .insert_workspace(NewWorkspace {
@@ -479,6 +481,7 @@ async fn sql_repository_search_treats_like_wildcards_as_literal_query_text() {
         tenant_id: "100001".to_string(),
         organization_id: "0".to_string(),
         operator_id: "30".to_string(),
+        caller: sdkwork_notes_pages_service::domain::CallerCredentials::default(),
     };
     repository
         .insert_workspace(NewWorkspace {
@@ -568,6 +571,7 @@ async fn sql_repository_apply_ai_suggestion_updates_page_pointer_and_suggestion_
         tenant_id: "100001".to_string(),
         organization_id: "0".to_string(),
         operator_id: "30".to_string(),
+        caller: sdkwork_notes_pages_service::domain::CallerCredentials::default(),
     };
     repository
         .insert_workspace(NewWorkspace {
@@ -656,6 +660,7 @@ async fn sql_repository_cancel_ai_job_rejects_concurrent_terminal_state_change()
         tenant_id: "100001".to_string(),
         organization_id: "0".to_string(),
         operator_id: "30".to_string(),
+        caller: sdkwork_notes_pages_service::domain::CallerCredentials::default(),
     };
     seed_workspace_page_and_ai_job(&repository, &context, "ai-job-concurrent-cancel").await;
 
@@ -710,6 +715,7 @@ async fn sql_repository_complete_ai_job_rolls_back_suggestions_when_final_update
         tenant_id: "100001".to_string(),
         organization_id: "0".to_string(),
         operator_id: "30".to_string(),
+        caller: sdkwork_notes_pages_service::domain::CallerCredentials::default(),
     };
     seed_workspace_page_and_ai_job(&repository, &context, "ai-job-concurrent-complete").await;
     repository
@@ -1026,7 +1032,7 @@ async fn seed_workspace_page_and_ai_job(
 }
 
 async fn table_columns(pool: &sqlx::AnyPool, table: &str) -> Vec<String> {
-    let rows = sqlx::query(&format!("PRAGMA table_info({table})"))
+    let rows = sqlx::query(sqlx::AssertSqlSafe(format!("PRAGMA table_info({table})")))
         .fetch_all(pool)
         .await
         .expect("table columns should be readable");
@@ -1044,7 +1050,7 @@ async fn index_exists(pool: &sqlx::AnyPool, index_name: &str) -> bool {
 }
 
 async fn column_is_not_null(pool: &sqlx::AnyPool, table: &str, column: &str) -> bool {
-    let rows = sqlx::query(&format!("PRAGMA table_info({table})"))
+    let rows = sqlx::query(sqlx::AssertSqlSafe(format!("PRAGMA table_info({table})")))
         .fetch_all(pool)
         .await
         .expect("table columns should be readable");

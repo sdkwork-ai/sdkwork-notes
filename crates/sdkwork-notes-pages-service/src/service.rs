@@ -2,13 +2,13 @@ use crate::domain::{
     AcceptAiSuggestionCommand, AiFeedback, AiFeedbackPage, AiJob, AiJobPage, AiJobSource,
     AiSuggestion, AiSuggestionPage, ApplyAiSuggestionCommand, ClaimAiJobCommand,
     CompleteAiJobCommand, CreateAiFeedbackCommand, CreateAiJobCommand, CreatePageCommand,
-    CreateWorkspaceCommand, DriveVersionPage, FailAiJobCommand, ListAiJobsQuery, ListAiSuggestionFeedbackQuery,
-    ListPageAiSuggestionsQuery, NewAiFeedback, NewAiJob, NewAiJobSource, NewAiSuggestion, NewPage,
-    NewWorkspace, NotesActorContext, Page, PageContent, PageInfo, PageKind, PageMetadataPatch, PageSummary,
-    PageSummaryPage, RejectAiSuggestionCommand, RemoteApplyConflict, RemoteApplyMutation,
-    RemoteApplyPageCommand, RemoteApplyPageResult, RestorePageVersionCommand, SearchResult,
-    SearchResultPage, UpdatePageContentCommand, UpdatePageMetadataCommand, Workspace,
-    WorkspaceBootstrap, WorkspacePage,
+    CreateWorkspaceCommand, DriveVersionPage, FailAiJobCommand, ListAiJobsQuery,
+    ListAiSuggestionFeedbackQuery, ListPageAiSuggestionsQuery, NewAiFeedback, NewAiJob,
+    NewAiJobSource, NewAiSuggestion, NewPage, NewWorkspace, NotesActorContext, Page, PageContent,
+    PageInfo, PageKind, PageMetadataPatch, PageSummary, PageSummaryPage, RejectAiSuggestionCommand,
+    RemoteApplyConflict, RemoteApplyMutation, RemoteApplyPageCommand, RemoteApplyPageResult,
+    RestorePageVersionCommand, SearchResult, SearchResultPage, UpdatePageContentCommand,
+    UpdatePageMetadataCommand, Workspace, WorkspaceBootstrap, WorkspacePage,
 };
 use crate::error::NotesProductError;
 use crate::ports::{
@@ -146,6 +146,7 @@ where
                 tenant_id: context.tenant_id.clone(),
                 organization_id: context.organization_id.clone(),
                 operator_id: context.operator_id.clone(),
+                caller: context.caller.clone(),
                 workspace_id: workspace.id.clone(),
                 page_id: page_id.clone(),
                 title: title.clone(),
@@ -380,7 +381,8 @@ where
     ) -> Result<RemoteApplyPageResult, NotesProductError> {
         let context = normalize_actor_context(command.context)?;
         let page_id = normalize_required_string("page id", &command.page_id)?;
-        let idempotency_key = normalize_required_string("idempotencyKey", &command.idempotency_key)?;
+        let idempotency_key =
+            normalize_required_string("idempotencyKey", &command.idempotency_key)?;
         let task_id = normalize_required_string("taskId", &command.task_id)?;
         let entity_type = normalize_required_string("entityType", &command.entity_type)?;
         let entity_id = normalize_required_string("entityId", &command.entity_id)?;
@@ -437,7 +439,11 @@ where
                     ));
                 };
 
-                if title.is_some() || is_favorite.is_some() || publish_status.is_some() || parent_id.is_some() {
+                if title.is_some()
+                    || is_favorite.is_some()
+                    || publish_status.is_some()
+                    || parent_id.is_some()
+                {
                     self.update_page_metadata(UpdatePageMetadataCommand {
                         context: context.clone(),
                         page_id: page_id.clone(),
@@ -590,6 +596,7 @@ where
                 tenant_id: context.tenant_id.clone(),
                 organization_id: context.organization_id.clone(),
                 operator_id: context.operator_id.clone(),
+                caller: context.caller.clone(),
                 workspace_id: page.workspace_id.clone(),
                 page_id: page.id.clone(),
                 drive_space_id: page.drive_space_id.clone(),
@@ -666,6 +673,7 @@ where
                 tenant_id: context.tenant_id.clone(),
                 organization_id: context.organization_id.clone(),
                 operator_id: context.operator_id.clone(),
+                caller: context.caller.clone(),
                 page_id: page.id.clone(),
                 drive_space_id: page.drive_space_id.clone(),
                 drive_node_id: page.drive_node_id.clone(),
@@ -723,6 +731,7 @@ where
                 tenant_id: context.tenant_id,
                 organization_id: context.organization_id,
                 operator_id: context.operator_id,
+                caller: context.caller.clone(),
                 page_id: page.id,
                 drive_space_id: page.drive_space_id,
                 drive_node_id: page.drive_node_id,
@@ -766,6 +775,7 @@ where
                 tenant_id: context.tenant_id.clone(),
                 organization_id: context.organization_id.clone(),
                 operator_id: context.operator_id.clone(),
+                caller: context.caller.clone(),
                 page_id: page.id.clone(),
                 drive_space_id: page.drive_space_id.clone(),
                 drive_node_id: page.drive_node_id.clone(),
@@ -857,11 +867,13 @@ where
         let target_type = normalize_ai_target_type(&command.target_type)?;
         let target_id = command
             .target_id
-            .as_ref().map(|value| trim(value))
+            .as_ref()
+            .map(|value| trim(value))
             .filter(|value| !value.is_empty());
         let prompt_snapshot = command
             .prompt
-            .as_ref().map(|value| trim(value))
+            .as_ref()
+            .map(|value| trim(value))
             .filter(|value| !value.is_empty());
         if prompt_snapshot
             .as_ref()
@@ -1030,7 +1042,8 @@ where
             }
             let page_id = suggestion
                 .page_id
-                .as_ref().map(|value| trim(value))
+                .as_ref()
+                .map(|value| trim(value))
                 .filter(|value| !value.is_empty())
                 .or_else(|| page_id_from_ai_job(&job, &sources))
                 .ok_or_else(|| {
@@ -1224,6 +1237,7 @@ where
                 tenant_id: context.tenant_id.clone(),
                 organization_id: context.organization_id.clone(),
                 operator_id: context.operator_id.clone(),
+                caller: context.caller.clone(),
                 workspace_id: page.workspace_id.clone(),
                 page_id: page.id.clone(),
                 drive_space_id: page.drive_space_id.clone(),
@@ -1305,7 +1319,8 @@ where
         let feedback_type = normalize_ai_feedback_type(&command.feedback_type)?;
         let feedback_text = command
             .feedback_text
-            .as_ref().map(|value| trim(value))
+            .as_ref()
+            .map(|value| trim(value))
             .filter(|value| !value.is_empty());
         if feedback_text
             .as_ref()
@@ -1524,6 +1539,7 @@ fn normalize_actor_context(
         tenant_id: normalize_required_string("tenant id", &context.tenant_id)?,
         organization_id: normalize_required_string("organization id", &context.organization_id)?,
         operator_id: normalize_required_string("operator id", &context.operator_id)?,
+        caller: context.caller,
     })
 }
 

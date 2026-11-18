@@ -36,6 +36,9 @@ use sdkwork_notes_pages_service::ports::{
     ReadDrivePageContentCommand, RestoreDrivePageContentVersionCommand,
     UpdateDrivePageContentCommand,
 };
+use sdkwork_utils_rust::caller_identity::{
+    missing_caller_identity, CallerCredentials, CallerTokenKind,
+};
 use sdkwork_utils_rust::service_base_url::registry_base_url_or;
 use sdkwork_utils_rust::string::{is_blank, trim};
 
@@ -60,7 +63,9 @@ const RESTORE_CONTENT_SCHEMA_VERSION: &str = "notes/v1";
 /// Split-deployment Drive adapter backed by the generated Drive App SDK.
 #[derive(Clone)]
 pub struct HttpDrivePageContentPort {
-    client: SdkworkAppClient,
+    /// Authored endpoint used as the degradation fallback; every call
+    /// re-resolves the registry target (`DISCOVERY_SPEC.md` §12.1).
+    base_url: String,
     http: Client,
 }
 
@@ -82,18 +87,41 @@ impl HttpDrivePageContentPort {
                  a Drive endpoint"
             ));
         }
-        let client = SdkworkAppClient::new_with_base_url(base_url)
-            .map_err(|error| format!("initialize Drive SDK client failed: {error}"))?;
-        if let Ok(token) = std::env::var("SDKWORK_ACCESS_TOKEN") {
-            let trimmed = trim(&token);
-            if !is_blank(Some(trimmed.as_str())) {
-                client.set_access_token(trimmed.as_str());
-            }
-        }
         let http = Client::builder()
             .build()
             .map_err(|error| format!("initialize Drive upload HTTP client failed: {error}"))?;
-        Ok(Self { client, http })
+        Ok(Self {
+            base_url: trim(&configured).to_owned(),
+            http,
+        })
+    }
+
+    /// Builds the caller-scoped Drive app-api client for one call.
+    ///
+    /// `APP_SDK_INTEGRATION_SPEC.md` §5.2.1: a user-scoped Drive write must
+    /// authenticate as the caller (the Drive app-api requires the dual-token
+    /// pair), never as a process credential. A call without a caller identity
+    /// fails here with a diagnostic naming the destination instead of
+    /// dispatching an unauthenticated request.
+    fn client(&self, caller: &CallerCredentials) -> Result<SdkworkAppClient, NotesProductError> {
+        if caller.is_empty() {
+            return Err(NotesProductError::PermissionDenied(
+                missing_caller_identity("sdkwork-drive app-api"),
+            ));
+        }
+        let base_url = registry_base_url_or("sdkwork-drive", &self.base_url);
+        let client = SdkworkAppClient::new_with_base_url(base_url).map_err(|error| {
+            NotesProductError::Internal(format!("initialize Drive SDK client failed: {error}"))
+        })?;
+        caller.apply_typed(|kind, token| match kind {
+            CallerTokenKind::Auth => {
+                client.set_auth_token(token);
+            }
+            CallerTokenKind::Access => {
+                client.set_access_token(token);
+            }
+        });
+        Ok(client)
     }
 }
 
@@ -103,9 +131,11 @@ impl DrivePageContentPort for HttpDrivePageContentPort {
         &self,
         command: CreateDrivePageContentCommand,
     ) -> Result<DrivePageContentSnapshot, NotesProductError> {
+        let client = self.client(&command.caller)?;
         let body = serialize_page_content(&command.content)?;
         let (node_id, space_id, version) = self
             .create_node_and_upload(
+                &client,
                 &command.tenant_id,
                 &command.organization_id,
                 &command.operator_id,
@@ -131,9 +161,10 @@ impl DrivePageContentPort for HttpDrivePageContentPort {
         &self,
         command: UpdateDrivePageContentCommand,
     ) -> Result<DrivePageContentSnapshot, NotesProductError> {
+        let client = self.client(&command.caller)?;
         if let Some(expected) = command.expected_drive_version_id.as_deref() {
             let current = self
-                .latest_file_version(&command.drive_node_id, &command.tenant_id)
+                .latest_file_version(&client, &command.drive_node_id, &command.tenant_id)
                 .await?;
             if current.id != expected {
                 return Err(NotesProductError::Conflict(
@@ -144,6 +175,7 @@ impl DrivePageContentPort for HttpDrivePageContentPort {
         let body = serialize_page_content(&command.content)?;
         let version = self
             .upload_new_version(
+                &client,
                 &command.tenant_id,
                 &command.operator_id,
                 &command.drive_space_id,
@@ -167,15 +199,17 @@ impl DrivePageContentPort for HttpDrivePageContentPort {
         &self,
         command: ReadDrivePageContentCommand,
     ) -> Result<DrivePageContentSnapshot, NotesProductError> {
+        let client = self.client(&command.caller)?;
         let version = self
             .resolve_version(
+                &client,
                 &command.drive_node_id,
                 &command.tenant_id,
                 &command.current_drive_version_id,
             )
             .await?;
         let content = self
-            .download_json_content(&command.tenant_id, &command.drive_node_id)
+            .download_json_content(&client, &command.tenant_id, &command.drive_node_id)
             .await?;
         Ok(snapshot_from_version(
             &command.drive_space_id,
@@ -191,9 +225,10 @@ impl DrivePageContentPort for HttpDrivePageContentPort {
         &self,
         command: RestoreDrivePageContentVersionCommand,
     ) -> Result<DrivePageContentSnapshot, NotesProductError> {
+        let client = self.client(&command.caller)?;
         if let Some(expected) = command.expected_current_drive_version_id.as_deref() {
             let current = self
-                .latest_file_version(&command.drive_node_id, &command.tenant_id)
+                .latest_file_version(&client, &command.drive_node_id, &command.tenant_id)
                 .await?;
             if current.id != expected {
                 return Err(NotesProductError::Conflict(
@@ -202,9 +237,9 @@ impl DrivePageContentPort for HttpDrivePageContentPort {
             }
         }
         let before = self
-            .latest_file_version(&command.drive_node_id, &command.tenant_id)
+            .latest_file_version(&client, &command.drive_node_id, &command.tenant_id)
             .await?;
-        self.client
+        client
             .drive()
             .versions_restore(
                 &command.drive_node_id,
@@ -214,7 +249,7 @@ impl DrivePageContentPort for HttpDrivePageContentPort {
             .await
             .map_err(map_drive_error("restore page content version"))?;
         let after = self
-            .latest_file_version(&command.drive_node_id, &command.tenant_id)
+            .latest_file_version(&client, &command.drive_node_id, &command.tenant_id)
             .await?;
         if after.version_no <= before.version_no {
             return Err(NotesProductError::Internal(
@@ -222,7 +257,7 @@ impl DrivePageContentPort for HttpDrivePageContentPort {
             ));
         }
         let content = self
-            .download_json_content(&command.tenant_id, &command.drive_node_id)
+            .download_json_content(&client, &command.tenant_id, &command.drive_node_id)
             .await?;
         Ok(snapshot_from_version(
             &command.drive_space_id,
@@ -238,8 +273,9 @@ impl DrivePageContentPort for HttpDrivePageContentPort {
         &self,
         command: ListDrivePageContentVersionsCommand,
     ) -> Result<DriveVersionPage, NotesProductError> {
+        let client = self.client(&command.caller)?;
         let mut items = self
-            .list_all_versions(&command.drive_node_id, &command.tenant_id)
+            .list_all_versions(&client, &command.drive_node_id, &command.tenant_id)
             .await?;
         items.sort_by(|left, right| right.version_no.cmp(&left.version_no));
         let start = ((command.page.max(1) - 1) * command.page_size.max(1)) as usize;
@@ -276,6 +312,7 @@ impl DrivePageContentPort for HttpDrivePageContentPort {
 impl HttpDrivePageContentPort {
     async fn create_node_and_upload(
         &self,
+        client: &SdkworkAppClient,
         tenant_id: &str,
         _organization_id: &str,
         operator_id: &str,
@@ -291,8 +328,7 @@ impl HttpDrivePageContentPort {
         let task_id = format!("notes-task-{page_id}-{epoch_ms}");
         let checksum = sha256_prefixed(body);
         let chunk_size = body.len().max(8) as i64;
-        let prepared = self
-            .client
+        let prepared = client
             .drive()
             .uploader_uploads_create(&PrepareUploaderUploadRequest {
                 id: upload_item_id.clone(),
@@ -319,6 +355,7 @@ impl HttpDrivePageContentPort {
         let node_id = prepared.upload_item.node_id.clone();
         let space_id = prepared.upload_item.space_id.clone();
         self.upload_single_part(
+            client,
             tenant_id,
             operator_id,
             &upload_session_id,
@@ -329,12 +366,15 @@ impl HttpDrivePageContentPort {
             &checksum,
         )
         .await?;
-        let version = self.latest_file_version(&node_id, tenant_id).await?;
+        let version = self
+            .latest_file_version(client, &node_id, tenant_id)
+            .await?;
         Ok((node_id, space_id, version))
     }
 
     async fn upload_new_version(
         &self,
+        client: &SdkworkAppClient,
         tenant_id: &str,
         operator_id: &str,
         drive_space_id: &str,
@@ -346,8 +386,7 @@ impl HttpDrivePageContentPort {
         let epoch_ms = current_epoch_ms();
         let session_id = format!("notes-session-{page_id}-{epoch_ms}");
         let checksum = sha256_prefixed(body);
-        let session = self
-            .client
+        let session = client
             .drive()
             .upload_sessions_create(&CreateUploadSessionRequest {
                 session_id,
@@ -365,6 +404,7 @@ impl HttpDrivePageContentPort {
             .await
             .map_err(map_drive_error("create Drive upload session"))?;
         self.upload_single_part(
+            client,
             tenant_id,
             operator_id,
             &session.id,
@@ -375,11 +415,13 @@ impl HttpDrivePageContentPort {
             &checksum,
         )
         .await?;
-        self.latest_file_version(drive_node_id, tenant_id).await
+        self.latest_file_version(client, drive_node_id, tenant_id)
+            .await
     }
 
     async fn upload_single_part(
         &self,
+        client: &SdkworkAppClient,
         _tenant_id: &str,
         _operator_id: &str,
         upload_session_id: &str,
@@ -389,8 +431,7 @@ impl HttpDrivePageContentPort {
         body: &[u8],
         checksum: &str,
     ) -> Result<(), NotesProductError> {
-        let presigned = self
-            .client
+        let presigned = client
             .drive()
             .upload_sessions_parts_update(
                 upload_session_id,
@@ -431,7 +472,7 @@ impl HttpDrivePageContentPort {
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| "\"uploaded\"".to_string());
         if let Some(upload_item_id) = upload_item_id {
-            self.client
+            client
                 .drive()
                 .uploader_uploads_parts_update(
                     upload_item_id,
@@ -442,7 +483,10 @@ impl HttpDrivePageContentPort {
                         size_bytes: body.len().to_string(),
                         etag: etag.clone(),
                         checksum_sha256_hex: Some(
-                            checksum.strip_prefix("sha256:").unwrap_or(checksum).to_string(),
+                            checksum
+                                .strip_prefix("sha256:")
+                                .unwrap_or(checksum)
+                                .to_string(),
                         ),
                         uploaded_at_epoch_ms: Some(current_epoch_ms().to_string()),
                     },
@@ -450,7 +494,7 @@ impl HttpDrivePageContentPort {
                 .await
                 .map_err(map_drive_error("mark Drive upload part uploaded"))?;
         }
-        self.client
+        client
             .drive()
             .upload_sessions_complete(
                 upload_session_id,
@@ -469,10 +513,11 @@ impl HttpDrivePageContentPort {
 
     async fn latest_file_version(
         &self,
+        client: &SdkworkAppClient,
         node_id: &str,
         _tenant_id: &str,
     ) -> Result<FileVersion, NotesProductError> {
-        let versions = self.list_all_versions(node_id, _tenant_id).await?;
+        let versions = self.list_all_versions(client, node_id, _tenant_id).await?;
         versions
             .into_iter()
             .max_by_key(|version| version.version_no.parse::<i64>().unwrap_or(0))
@@ -481,12 +526,12 @@ impl HttpDrivePageContentPort {
 
     async fn resolve_version(
         &self,
+        client: &SdkworkAppClient,
         node_id: &str,
         _tenant_id: &str,
         drive_version_id: &str,
     ) -> Result<FileVersion, NotesProductError> {
-        let response = self
-            .client
+        let response = client
             .drive()
             .versions_list(node_id, Some("100"), None)
             .await
@@ -495,21 +540,19 @@ impl HttpDrivePageContentPort {
             .items
             .into_iter()
             .find(|version| version.id == drive_version_id)
-            .ok_or_else(|| {
-                NotesProductError::NotFound("Drive file version not found".to_string())
-            })
+            .ok_or_else(|| NotesProductError::NotFound("Drive file version not found".to_string()))
     }
 
     async fn list_all_versions(
         &self,
+        client: &SdkworkAppClient,
         node_id: &str,
         _tenant_id: &str,
     ) -> Result<Vec<FileVersion>, NotesProductError> {
         let mut items = Vec::new();
         let mut page_token: Option<String> = None;
         loop {
-            let response = self
-                .client
+            let response = client
                 .drive()
                 .versions_list(node_id, Some("100"), page_token.as_deref())
                 .await
@@ -528,11 +571,11 @@ impl HttpDrivePageContentPort {
 
     async fn download_json_content(
         &self,
+        client: &SdkworkAppClient,
         _tenant_id: &str,
         node_id: &str,
     ) -> Result<Value, NotesProductError> {
-        let download = self
-            .client
+        let download = client
             .drive()
             .download_urls_create(&CreateDownloadUrlRequest {
                 node_id: node_id.to_string(),
@@ -606,4 +649,30 @@ fn current_epoch_ms() -> i64 {
 
 fn map_drive_error(context: &'static str) -> impl Fn(SdkworkError) -> NotesProductError {
     move |error| NotesProductError::Internal(format!("{context}: {error}"))
+}
+
+#[cfg(test)]
+mod caller_identity_tests {
+    use super::*;
+
+    #[test]
+    fn a_call_without_caller_identity_fails_closed_with_the_destination_name() {
+        let port = HttpDrivePageContentPort {
+            base_url: "http://127.0.0.1:1".to_owned(),
+            http: Client::new(),
+        };
+        let error = port
+            .client(&CallerCredentials::default())
+            .err()
+            .expect("a call without a caller identity must not dispatch");
+        let message = error.to_string();
+        assert!(
+            message.contains("sdkwork-drive app-api"),
+            "the diagnostic names the destination surface: {message}"
+        );
+        assert!(
+            message.contains("neither an Authorization bearer nor an Access-Token"),
+            "the diagnostic distinguishes a missing identity: {message}"
+        );
+    }
 }

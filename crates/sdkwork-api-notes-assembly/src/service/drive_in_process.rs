@@ -599,7 +599,7 @@ impl DrivePageContentPort for InProcessDrivePageContentPort {
             .find_default_storage_target(&tenant_id, &drive_space_id)
             .await
             .map_err(|error| drive_error(CONTEXT, error))?
-            .map(|storage_target| storage_target.provider_id)
+            .map(|target| target.provider_id)
             .ok_or_else(|| {
                 NotesProductError::Internal(format!(
                     "{CONTEXT}: Drive space {drive_space_id} has no active storage provider binding"
@@ -1054,7 +1054,10 @@ mod tests {
     #[test]
     fn restore_reports_the_missing_drive_api_instead_of_writing_sql() {
         let source = production_source();
-        assert!(source.contains("restore_as_new_version("), "the needed API is named");
+        assert!(
+            source.contains("restore_as_new_version("),
+            "the needed API is named"
+        );
         assert!(
             !source.contains(".restore_version("),
             "a lifecycle-flip restore cannot advance the Notes pointer"

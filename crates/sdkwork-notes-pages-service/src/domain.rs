@@ -1,11 +1,17 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Verified caller dual credentials (`APP_SDK_INTEGRATION_SPEC.md` §5.2.1).
+pub use sdkwork_utils_rust::caller_identity::CallerCredentials;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NotesActorContext {
     pub tenant_id: String,
     pub organization_id: String,
     pub operator_id: String,
+    /// The authenticated caller's dual tokens, forwarded to every outbound
+    /// user-scoped dependency call. Empty on a service-identity path.
+    pub caller: CallerCredentials,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
