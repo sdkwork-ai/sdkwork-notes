@@ -397,8 +397,8 @@ impl InProcessDrivePageContentPort {
             object_id: &object_id,
         })
         .map_err(|error| NotesProductError::Internal(format!("{context}: {error}")))?;
-        let (storage_provider_id, bucket) = SqlUploaderStore::new(self.pool.clone())
-            .find_default_storage_provider(tenant_id, space_id)
+        let storage_target = SqlUploaderStore::new(self.pool.clone())
+            .find_default_storage_target(tenant_id, space_id)
             .await
             .map_err(|error| drive_error(context, error))?
             .ok_or_else(|| {
@@ -406,6 +406,8 @@ impl InProcessDrivePageContentPort {
                     "{context}: Drive space {space_id} has no active storage provider binding"
                 ))
             })?;
+        let storage_provider_id = storage_target.provider_id;
+        let bucket = storage_target.bucket;
         let object_store = DriveObjectStoreRuntime::new(self.pool.clone())
             .resolve(&storage_provider_id, ProviderAccessIntent::Write)
             .await
@@ -594,10 +596,10 @@ impl DrivePageContentPort for InProcessDrivePageContentPort {
         // prepared object; Drive's own uploader resolves the same default
         // storage binding for the space, so the locator matches.
         let provider_id = SqlUploaderStore::new(self.pool.clone())
-            .find_default_storage_provider(&tenant_id, &drive_space_id)
+            .find_default_storage_target(&tenant_id, &drive_space_id)
             .await
             .map_err(|error| drive_error(CONTEXT, error))?
-            .map(|(provider_id, _bucket)| provider_id)
+            .map(|storage_target| storage_target.provider_id)
             .ok_or_else(|| {
                 NotesProductError::Internal(format!(
                     "{CONTEXT}: Drive space {drive_space_id} has no active storage provider binding"
